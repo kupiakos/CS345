@@ -86,3 +86,11 @@ com_crashlytics_export_strings.xml
 crashlytics.properties
 crashlytics-build.properties
 fabric.properties
+
+CMakeCache.txt
+CMakeFiles/
+CMakeLists.txt
+Makefile
+Shell
+cmake_install.cmake
+
