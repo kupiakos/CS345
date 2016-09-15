@@ -46,11 +46,18 @@ Command **commands;                        // shell commands
 // ***********************************************************************
 // project 1 prototypes
 Command **P1_init(void);
-
 Command *newCommand(char *, char *, int (*func)(int, char **), char *);
+
+bool parse_cmdline(const char *, int *, char *[MAX_ARGS]);
 
 void mySigIntHandler() {
     printf("Hellomynameisinigomontoyayoukilledmyfatherpreparetodie");
+}
+
+
+enum PARSE_STATE {  };
+bool parse_cmdline(const char *buf, int *out_argc, char *out_argv[MAX_ARGS]) {
+    while ()
 }
 
 // ***********************************************************************
@@ -145,16 +152,17 @@ int P1AliveTask(int argc, char *argv[]) {
 } // end P1AliveTask
 
 int P1_project1(int argc, char *argv[]) {
-    int i;
-    char buffer[16];
-    for (i = 0; i < NUM_ALIVE; i++) {
-        sprintf(buffer, "I'm Alive %d", i);
-        createTask(buffer,            // task name
-                   P1AliveTask,        // task
-                   LOW_PRIORITY,        // task priority
-                   argc,                // task argc
-                   argv);                // task argument pointers
-    }
+//    int i;
+//    char buffer[16];
+//    for (i = 0; i < NUM_ALIVE; i++) {
+//        sprintf(buffer, "I'm Alive %d", i);
+//        createTask(buffer,            // task name
+//                   P1AliveTask,        // task
+//                   LOW_PRIORITY,        // task priority
+//                   argc,                // task argc
+//                   argv);                // task argument pointers
+//    }
+    printf("argc: %d");
     return 0;
 } // end P1_project1
 
