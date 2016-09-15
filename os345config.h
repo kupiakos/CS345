@@ -17,7 +17,7 @@
 //	CLEAR_SCR		Called in Project 3 each second when displaying Jurassic Park
 //
 // ***********************************************************************
-#if __MSDOS__ == 1
+#ifdef __MSDOS__
 // FOR LCC AND COMPATIBLE COMPILERS
 #include <conio.h>
 
@@ -29,7 +29,7 @@
 #define CLEAR_SCREEN    system("cls");
 #endif
 
-#if __gnu_linux__ == 1
+#ifdef __gnu_linux__
 // FOR GCC AND COMPATIBLE COMPILERS
 #include <fcntl.h>
 #define INIT_OS		system("stty -echo -icanon");fcntl(1,F_SETFL,O_NONBLOCK);
@@ -41,7 +41,7 @@
 #define CLEAR_SCREEN	system("clear");
 #endif
 
-#if _MANAGED == 1
+#ifdef _MANAGED
 // FOR .NET AND COMPATIBLE COMPILERS
 #include <conio.h>
 #define INIT_OS
@@ -53,7 +53,7 @@
 #endif
 
 // FOR POWER PC COMPATIBLE COMPILERS
-#if __powerpc__ == 1
+#ifdef __powerpc__
 #include <fcntl.h>
 #define INIT_OS		system("stty -echo -icanon");fcntl(1,F_SETFL,O_NONBLOCK);
 #define GET_CHAR		getchar()
@@ -65,7 +65,7 @@
 #endif
 
 // FOR 64-BIT MAC COMPATIBLE COMPILERS (OSX Lion 10.7)
-#if __APPLE__ == 1
+#ifdef __APPLE__
 #include <fcntl.h>
 #define INIT_OS		system("stty -echo -icanon");fcntl(1,F_SETFL,O_NONBLOCK);
 #define GET_CHAR		getchar()
@@ -75,7 +75,7 @@
 #define CLEAR_SCREEN	system("cls");
 #endif
 
-#define SWAP_BYTES(v) 1?v:((((v)>>8)&0x00ff))|((v)<<8)
-#define SWAP_WORDS(v) LITTLE?v:((SWAP_BYTES(v)<<16))|(SWAP_BYTES((v)>>16))
+// #define SWAP_BYTES(v) 1?v:((((v)>>8)&0x00ff))|((v)<<8)
+// #define SWAP_WORDS(v) LITTLE?v:((SWAP_BYTES(v)<<16))|(SWAP_BYTES((v)>>16))
 
 #endif // __os345config_h__
