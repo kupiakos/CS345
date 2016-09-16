@@ -104,6 +104,20 @@ int sigSignal(int taskId, int sig) {
     return 1;
 }
 
+int sigClearSignal(int taskId, int sig) {
+    // check for task
+    if ((taskId >= 0) && tcb[taskId].name) {
+        tcb[taskId].signal &= ~sig;
+        return 0;
+    } else if (taskId == -1) {
+        for (taskId = 0; taskId < MAX_TASKS; taskId++) {
+            sigClearSignal(taskId, sig);
+        }
+        return 0;
+    }
+    // error
+    return 1;
+}
 
 // **********************************************************************
 // **********************************************************************
@@ -139,7 +153,7 @@ void createTaskSigHandlers(int tid) {
         tcb[tid].sigContHandler = tcb[curTask].sigContHandler;
         tcb[tid].sigIntHandler  = tcb[curTask].sigIntHandler;
         tcb[tid].sigTermHandler = tcb[curTask].sigTermHandler;
-        tcb[tid].sigTstpHandler = tcb[curTask].sigIntHandler;
+        tcb[tid].sigTstpHandler = tcb[curTask].sigTstpHandler;
     } else {
         // otherwise use defaults
         tcb[tid].sigIntHandler = defaultSigIntHandler;

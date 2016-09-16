@@ -17,9 +17,9 @@ int sigAction(void (*sigHandler)(void), int sig);
 
 int sigSignal(int taskId, int sig);
 
-int sigSignal(int taskId, int sig);
+int sigClearSignal(int taskId, int sig);
 
-int sigAction(void (*sigHandler)(void), int sig);
+//int sigAction(void (*sigHandler)(void), int sig);
 
 void defaultSigContHandler(void);
 void defaultSigIntHandler(void);

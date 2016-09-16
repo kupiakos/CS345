@@ -96,26 +96,34 @@ static void keyboard_isr() {
     if (charFlag == 0) {
         switch (inChar) {
             case '\r':
-            case '\n': {
-                inBufIndx = 0;                // EOL, signal line ready
+            case '\n':
+                inBufIndx = 0;               // EOL, signal line ready
                 semSignal(inBufferReady);    // SIGNAL(inBufferReady)
                 break;
-            }
 
-            case 0x18:                        // ^x
-            {
+            case 0x12:                       // ^R
+                sigSignal(-1, mySIGCONT);
+                for (int taskId = 0; taskId < MAX_TASKS; taskId++) {
+                    sigClearSignal(-1, mySIGSTOP);
+                    sigClearSignal(-1, mySIGTSTP);
+                }
+                break;
+
+            case 0x17:                       // ^W
+                sigSignal(-1, mySIGTSTP);
+                break;
+
+            case 0x18:                       // ^X
                 inBufIndx = 0;
                 inBuffer[0] = 0;
-                sigSignal(0, mySIGINT);        // interrupt task 0
+                sigSignal(0, mySIGINT);      // interrupt task 0
                 semSignal(inBufferReady);    // SEM_SIGNAL(inBufferReady)
                 break;
-            }
 
-            default: {
+            default:
                 inBuffer[inBufIndx++] = inChar;
                 inBuffer[inBufIndx] = 0;
                 printf("%c", inChar);        // echo character
-            }
         }
     } else {
         // single character mode
