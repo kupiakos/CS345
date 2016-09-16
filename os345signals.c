@@ -35,13 +35,28 @@ extern int curTask;                            // current task #
 //	return 1 if task is NOT to be scheduled.
 //
 int signals(void) {
+    int no_schedule = 0;
     if (tcb[curTask].signal) {
         if (tcb[curTask].signal & mySIGINT) {
             tcb[curTask].signal &= ~mySIGINT;
             (*tcb[curTask].sigIntHandler)();
         }
+        if (tcb[curTask].signal & mySIGCONT) {
+            tcb[curTask].signal &= ~mySIGCONT;
+            (*tcb[curTask].sigContHandler)();
+        }
+        if (tcb[curTask].signal & mySIGTERM) {
+            tcb[curTask].signal &= ~mySIGTERM;
+            (*tcb[curTask].sigTermHandler)();
+            no_schedule = 1;
+        }
+        if (tcb[curTask].signal & mySIGSTOP) {
+            tcb[curTask].signal &= ~mySIGSTOP;
+            (*tcb[curTask].sigTstpHandler)();
+            no_schedule = 1;
+        }
     }
-    return 0;
+    return no_schedule;
 }
 
 
