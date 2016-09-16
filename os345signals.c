@@ -66,10 +66,18 @@ int signals(void) {
 //
 int sigAction(void (*sigHandler)(void), int sig) {
     switch (sig) {
-        case mySIGINT: {
+        case mySIGCONT:
+            tcb[curTask].sigContHandler = sigHandler;
+            return 0;
+        case mySIGINT:
             tcb[curTask].sigIntHandler = sigHandler;        // mySIGINT handler
             return 0;
-        }
+        case mySIGTERM:
+            tcb[curTask].sigTermHandler = sigHandler;
+            return 0;
+        case mySIGTSTP:
+            tcb[curTask].sigTstpHandler = sigHandler;
+            return 0;
     }
     return 1;
 }
