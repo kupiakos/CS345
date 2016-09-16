@@ -17,7 +17,7 @@
 //	CLEAR_SCR		Called in Project 3 each second when displaying Jurassic Park
 //
 // ***********************************************************************
-#ifdef __MSDOS__
+#if (_WIN32) || defined(_WIN64)
 // FOR LCC AND COMPATIBLE COMPILERS
 #include <conio.h>
 
@@ -27,6 +27,7 @@
 #define RESTORE_OS
 #define LITTLE    1
 #define CLEAR_SCREEN    system("cls");
+#define strcasecmp      _stricmp
 #endif
 
 #ifdef __gnu_linux__

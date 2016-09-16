@@ -48,16 +48,207 @@ Command **commands;                        // shell commands
 Command **P1_init(void);
 Command *newCommand(char *, char *, int (*func)(int, char **), char *);
 
-bool parse_cmdline(const char *, int *, char *[MAX_ARGS]);
 
 void mySigIntHandler() {
     printf("Hellomynameisinigomontoyayoukilledmyfatherpreparetodie");
 }
 
+static char *create_arg(const char *src, size_t str_size) {
+    char *dst = NULL;
+    // Make room for the null char
+    dst = malloc(str_size + 1);
+    if (!dst)
+        return NULL;
+    strncpy(dst, src, str_size);
+    dst[str_size] = 0;
+    return dst;
+}
 
-enum PARSE_STATE {  };
-bool parse_cmdline(const char *buf, int *out_argc, char *out_argv[MAX_ARGS]) {
-    while ()
+#define MAX_ARGSIZE 1024
+
+static inline bool iseol(char x) {
+    return x == '\r' || x == '\n' || x == '\x00';
+}
+
+// Returns if parse done successfully
+enum PARSE_STATE { BetweenArgs, QuotedArg, UnquotedArg, Comment, ExpectEOL, AtEOL };
+static const char *parse_cmdline(
+        const char *buf, int *out_argc, char *out_argv[MAX_ARGS], int *out_isBackground) {
+    assert(out_argc);
+    assert(out_argv);
+    assert(buf);
+
+    int isBackground = 0;
+    int argc = 0;
+    static char *argv[MAX_ARGS];
+    static char arg_buf[MAX_ARGSIZE];
+
+    size_t arg_size = 0;
+    char c = 0;
+
+    enum PARSE_STATE state = BetweenArgs;
+    while (state != AtEOL) {
+        c = *buf++;
+        switch (state) {
+            case BetweenArgs:
+                switch (c) {
+                    case '#':
+                        state = Comment;
+                        break;
+                    case '&':
+                        state = ExpectEOL;
+                        isBackground = 1;
+                        break;
+                    case '\r':
+                    case '\n':
+                    case '\x00':
+                        // An end of line or comment
+                        state = AtEOL;
+                        break;
+                    case '"':
+                        arg_size = 0;
+                        state = QuotedArg;
+                        if (argc >= MAX_ARGS) {
+                            goto argc_error;
+                        }
+                        arg_size = 0;
+                        break;
+                    default:
+                        if (isalnum(c)) {
+                            if (argc >= MAX_ARGS) {
+                                goto argc_error;
+                            }
+                            arg_size = 1;
+                            arg_buf[0] = c;
+                            state = UnquotedArg;
+                        } else if (!isspace(c)) {
+                            // The velociraptors have come
+                            goto token_error;
+                        }
+                }
+                break;
+            case QuotedArg:
+                switch (c) {
+                    case '"':
+                        argv[argc++] = create_arg(arg_buf, arg_size);
+                        state = BetweenArgs;
+                        break;
+                    case '\r':
+                    case '\n':
+                    case '\x00':
+                        goto token_error;
+                    default:
+                        arg_buf[arg_size++] = c;
+                        if (arg_size >= MAX_ARGSIZE) {
+                            goto argsize_error;
+                        }
+                        break;
+                }
+                break;
+            case UnquotedArg:
+                switch (c) {
+                    case '#':
+                        state = Comment;
+                        break;
+                    case '&':
+                        state = ExpectEOL;
+                        isBackground = 1;
+                        break;
+                    case '"':
+                        goto token_error;
+                    case '\r':
+                    case '\n':
+                    case '\x00':
+                        state = AtEOL;
+                        break;
+                    default:
+                        if (isspace(c)) {
+                            state = BetweenArgs;
+                        }
+                        break;
+                }
+                if (isalnum(c)) {
+                    arg_buf[arg_size++] = c;
+                } else if (isspace(c) || c == '#' || c == '&' || c == '\x00') {
+                    argv[argc++] = create_arg(arg_buf, arg_size);
+                } else {
+                    goto token_error;
+                }
+                break;
+            case Comment:
+                if (iseol(c)) {
+                    state = AtEOL;
+                }
+                break;
+            case ExpectEOL:
+                if (iseol(c)) {
+                    state = AtEOL;
+                } else if (!isspace(c)) {
+                    goto token_error;
+                }
+                break;
+            case AtEOL:break;
+        }
+//        SWAP
+    }
+    if (c == '\r') {
+        ++buf;
+    }
+
+    // Copy the results
+    argv[argc] = 0;
+    *out_argc = argc;
+    for (int i = 0; i < argc + 1; ++i) {
+        out_argv[i] = argv[i];
+        argv[i] = 0;
+    }
+    *out_isBackground = isBackground;
+    return buf;
+
+    // ERRORS //
+    token_error:
+    if (isspace(c)) {
+        const char *name = NULL;
+        switch (c) {
+            case '\r':
+            case '\n':
+                name = "EOL";
+                break;
+            case '\t':
+                name = "tab";
+                break;
+            case ' ':
+                name = "space";
+                break;
+            default:
+                name = "unknown space character";
+                break;
+        }
+        printf("\nUnexpected %s\n", name);
+    } else {
+        printf("\nUnexpected token %c\n", c);
+    }
+    goto cleanup;
+
+    //////
+    argc_error:
+    printf("\nExceeded max args!\n");
+    goto cleanup;
+
+    //////
+    argsize_error:
+    printf("\nExceeded max arg size!\n");
+    goto cleanup;
+
+    //////
+    cleanup:
+    for (int i = 0; i < MAX_ARGS; ++i) {
+        if (argv[i]) {
+            free(argv[i]);
+            argv[i] = 0;
+        }
+    }
+    return NULL;
 }
 
 // ***********************************************************************
@@ -74,20 +265,22 @@ bool parse_cmdline(const char *buf, int *out_argc, char *out_argv[MAX_ARGS]) {
 // 7. Supports background execution of non-intrinsic commands.
 //
 int P1_shellTask(int argc, char *argv[]) {
-    int i, found;
-    int newArgc;                            // # of arguments
-    char **newArgv;                            // pointers to arguments
+    int i, found, didread;
+    int newArgc;
+    int isBackground;
+    char *newArgv[MAX_ARGS];
 
     // initialize shell commands
     commands = P1_init();                    // init shell commands
 
     sigAction(mySigIntHandler, mySIGINT);
+    printf("\n");
 
 
     while (1) {
         // output prompt
-        if (diskMounted) printf("\n%s>>", dirPath);
-        else printf("\n%ld>>", swapCount);
+        if (diskMounted) printf("\n%s ", dirPath);
+        else printf("\n$ ");
 
         SEM_WAIT(inBufferReady);            // wait for input buffer semaphore
         if (!inBuffer[0]) continue;        // ignore blank lines
@@ -98,38 +291,40 @@ int P1_shellTask(int argc, char *argv[]) {
         // ?? vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
         // ?? parse command line into argc, argv[] variables
         // ?? must use malloc for argv storage!
-        {
-            static char *sp, *myArgv[MAX_ARGS];
-
-            // init arguments
-            newArgc = 1;
-            myArgv[0] = sp = inBuffer;                // point to input string
-            for (i = 1; i < MAX_ARGS; i++) myArgv[i] = 0;
-
-            // parse input string
-            while ((sp = strchr(sp, ' '))) {
-                *sp++ = 0;
-                myArgv[newArgc++] = sp;
-            }
-            newArgv = myArgv;
-        }
+        didread = parse_cmdline(inBuffer, &newArgc, newArgv, &isBackground) != NULL;
         // ?? ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-        // look for command
-        for (found = i = 0; i < NUM_COMMANDS; i++) {
-            if (!strcmp(newArgv[0], commands[i]->command) ||
-                !strcmp(newArgv[0], commands[i]->shortcut)) {
-                // command found, make implicit call thru function pointer
-                int retValue = (*commands[i]->func)(newArgc, newArgv);
-                if (retValue) printf("\nCommand Error %d", retValue);
-                found = TRUE;
-                break;
+        printf("\n");
+        if (didread) {
+            // look for command
+            for (found = i = 0; i < NUM_COMMANDS; i++) {
+                if (!strcasecmp(newArgv[0], commands[i]->command) ||
+                    !strcasecmp(newArgv[0], commands[i]->shortcut)) {
+                    // command found, make implicit call thru function pointer
+                    if (isBackground) {
+                        createTask(newArgv[0],    // task name
+                            *commands[i]->func,   // task
+                            LOW_PRIORITY,         // task priority
+                            newArgc,                 // task argc
+                            newArgv);                // task argument pointers
+                    } else {
+                        int retValue = (*commands[i]->func)(newArgc, newArgv);
+                        if (retValue) printf("\nCommand Error %d", retValue);
+                    }
+                    found = TRUE;
+                    break;
+                }
+            }
+            if (!found) printf("command not found: %s", newArgv[0]);
+
+            for (i = 0; i < MAX_ARGS; ++i) {
+                if (newArgv[i]) {
+                    free(newArgv[i]);
+                    newArgv[i] = NULL;
+                }
             }
         }
-        if (!found) printf("\nInvalid command!");
-
-        // ?? free up any malloc'd argv parameters
-        for (i = 0; i < INBUF_SIZE; i++) inBuffer[i] = 0;
+        memset(inBuffer, 0, INBUF_SIZE);
     }
     return 0;                        // terminate task
 } // end P1_shellTask
@@ -162,7 +357,20 @@ int P1_project1(int argc, char *argv[]) {
 //                   argc,                // task argc
 //                   argv);                // task argument pointers
 //    }
-    printf("argc: %d");
+    if (argv[1]) {
+        int wait = atoi(argv[1]);
+        wait *= 100000;
+        if (wait > 0) {
+            for (int i = 0; i < wait; ++i) {
+                swapTask();
+            }
+        }
+    }
+    printf("argc: %d\n", argc);
+    for (int i = 0; i < argc; ++i) {
+        printf("argv[%d]: %s\n", i, argv[i] ? argv[i] : "NULL");
+    }
+    printf("\n");
     return 0;
 } // end P1_project1
 

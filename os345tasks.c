@@ -36,12 +36,55 @@ extern int superMode;                        // system mode
 extern Semaphore *semaphoreList;            // linked list of active semaphores
 extern Semaphore *taskSems[MAX_TASKS];        // task semaphore
 
+// create a newly malloced string array that copies (also mallocs) its internals
+static char **strarrcpy(char **src, size_t n) {
+    char **dst;
+    int i;
+    dst = malloc(sizeof(*dst) * (n + 1));
+    if (!dst) {
+        return NULL;
+    }
+    for (i = 0; i < n; ++i) {
+        if (src[i]) {
+            // only traverse string once
+            size_t len = strlen(src[i]);
+            dst[i] = malloc(len + 1);
+            if (!dst[i]) {
+                // recover and exit
+                for (int j = 0; j < i; ++j) {
+                    if (dst[j]) {
+                        free(dst[j]);
+                    }
+                }
+                return NULL;
+            }
+            memcpy(dst[i], src[i], len);
+            dst[i][len] = 0;
+        } else {
+            // If the source string doesn't exist (is null), copy the NULL
+            dst[i] = NULL;
+        }
+    }
+    return dst;
+}
+
+static void freestrarray(char **src, size_t n) {
+    if (!src) return;
+    for (int i = 0; i < n; ++i) {
+        if (src[i]) {
+            free(src[i]);
+            src[i] = NULL;
+        }
+    }
+    free(src);
+}
+
 
 // **********************************************************************
 // **********************************************************************
 // create task
-int createTask(char *name,                        // task name
-               int (*task)(int, char **),    // task address
+int createTask(char *name,                  // task name
+               int (*task)(int, char **),   // task address
                int priority,                // task priority
                int argc,                    // task argument count
                char *argv[])                // task argument pointers
@@ -57,7 +100,7 @@ int createTask(char *name,                        // task name
             if (taskSems[tid]) deleteSemaphore(&taskSems[tid]);
             sprintf(buf, "task%d", tid);
             taskSems[tid] = createSemaphore(buf, 0, 0);
-            taskSems[tid]->taskNum = 0;    // assign to shell
+            taskSems[tid]->taskNum = 0;      // assign to shell
 
             // copy task name
             tcb[tid].name = (char *) malloc(strlen(name) + 1);
@@ -65,16 +108,15 @@ int createTask(char *name,                        // task name
 
             // set task address and other parameters
             tcb[tid].task = task;            // task address
-            tcb[tid].state = S_NEW;            // NEW task state
+            tcb[tid].state = S_NEW;          // NEW task state
             tcb[tid].priority = priority;    // task priority
-            tcb[tid].parent = curTask;        // parent
+            tcb[tid].parent = curTask;       // parent
             tcb[tid].argc = argc;            // argument count
+            assert(argc >= 0);
+            tcb[tid].argv = strarrcpy(argv, (size_t)argc);            // argument pointers
 
-            // ?? malloc new argv parameters
-            tcb[tid].argv = argv;            // argument pointers
-
-            tcb[tid].event = 0;                // suspend semaphore
-            tcb[tid].RPT = 0;                    // root page table (project 5)
+            tcb[tid].event = 0;              // suspend semaphore
+            tcb[tid].RPT = 0;                // root page table (project 5)
             tcb[tid].cdir = CDIR;            // inherit parent cDir (project 6)
 
             // define task signals
@@ -85,8 +127,8 @@ int createTask(char *name,                        // task name
 
             // ?? may require inserting task into "ready" queue
 
-            if (tid) swapTask();                // do context switch (if not cli)
-            return tid;                            // return tcb index (curTask)
+            if (tid) swapTask();             // do context switch (if not cli)
+            return tid;                      // return tcb index (curTask)
         }
     }
     // tcb full!
@@ -152,7 +194,7 @@ int sysKillTask(int taskId) {
     semSignal(taskSems[taskId]);
 
     // look for any semaphores created by this task
-    while (sem = *semLink) {
+    while ((sem = *semLink)) {
         if (sem->taskNum == taskId) {
             // semaphore found, delete from list, release memory
             deleteSemaphore(semLink);
@@ -163,6 +205,8 @@ int sysKillTask(int taskId) {
     }
 
     // ?? delete task from system queues
+    freestrarray(tcb[taskId].argv, (size_t)tcb[taskId].argc);
+    tcb[taskId].argv = NULL;
 
     tcb[taskId].name = 0;            // release tcb slot
     return 0;
