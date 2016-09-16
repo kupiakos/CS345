@@ -50,7 +50,8 @@ Command *newCommand(char *, char *, int (*func)(int, char **), char *);
 
 
 void mySigIntHandler() {
-    printf("Hellomynameisinigomontoyayoukilledmyfatherpreparetodie");
+//    printf("Hellomynameisinigomontoyayoukilledmyfatherpreparetodie");
+    killTask(-1);
 }
 
 static char *create_arg(const char *src, size_t str_size) {
