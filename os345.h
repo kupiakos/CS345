@@ -164,7 +164,7 @@ int semTryLock(Semaphore *);
 // ***********************************************************************
 // Command prototypes
 
-#define NUM_COMMANDS 49
+#define NUM_COMMANDS 51
 typedef struct                                // command struct
 {
     char *command;
@@ -177,6 +177,8 @@ typedef struct                                // command struct
 
 int P1_shellTask(int, char **);
 int P1_project1(int, char **);
+int P1_args(int, char **);
+int P1_add(int, char **);
 int P1_help(int, char **);
 int P1_quit(int, char **);
 int P1_lc3(int, char **);

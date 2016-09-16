@@ -348,16 +348,20 @@ int P1AliveTask(int argc, char *argv[]) {
 } // end P1AliveTask
 
 int P1_project1(int argc, char *argv[]) {
-//    int i;
-//    char buffer[16];
-//    for (i = 0; i < NUM_ALIVE; i++) {
-//        sprintf(buffer, "I'm Alive %d", i);
-//        createTask(buffer,            // task name
-//                   P1AliveTask,        // task
-//                   LOW_PRIORITY,        // task priority
-//                   argc,                // task argc
-//                   argv);                // task argument pointers
-//    }
+    int i;
+    char buffer[16];
+    for (i = 0; i < NUM_ALIVE; i++) {
+        sprintf(buffer, "I'm Alive %d", i);
+        createTask(buffer,            // task name
+                   P1AliveTask,        // task
+                   LOW_PRIORITY,        // task priority
+                   argc,                // task argc
+                   argv);                // task argument pointers
+    }
+} // end P1_project1
+
+
+int P1_args(int argc, char *argv[]) {
     if (argv[1]) {
         int wait = atoi(argv[1]);
         wait *= 100000;
@@ -373,8 +377,18 @@ int P1_project1(int argc, char *argv[]) {
     }
     printf("\n");
     return 0;
-} // end P1_project1
+}
 
+int P1_add(int argc, char *argv[]) {
+    argv++;
+    char *v;
+    int acc = 0;
+    while ((v = *argv++)) {
+        acc += strtol(v, NULL, 0);
+    }
+    printf("%d", acc);
+    return 0;
+}
 
 
 // ***********************************************************************
@@ -465,6 +479,8 @@ Command **P1_init() {
 
     // P1: Shell
     commands[i++] = newCommand("project1", "p1", P1_project1, "P1: Shell");
+    commands[i++] = newCommand("add", "ad", P1_add, "Add given integers");
+    commands[i++] = newCommand("args", "arg", P1_args, "Show given arguments");
     commands[i++] = newCommand("help", "he", P1_help, "OS345 Help");
     commands[i++] = newCommand("lc3", "lc3", P1_lc3, "Execute LC3 program");
 
