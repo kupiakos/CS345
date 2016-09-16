@@ -50,8 +50,8 @@ int signals(void) {
             (*tcb[curTask].sigTermHandler)();
             no_schedule = 1;
         }
-        if (tcb[curTask].signal & mySIGSTOP) {
-            tcb[curTask].signal &= ~mySIGSTOP;
+        if (tcb[curTask].signal & mySIGTSTP) {
+            tcb[curTask].signal &= ~mySIGTSTP;
             (*tcb[curTask].sigTstpHandler)();
             no_schedule = 1;
         }
