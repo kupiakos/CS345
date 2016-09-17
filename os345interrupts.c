@@ -101,7 +101,15 @@ static void keyboard_isr() {
                 semSignal(inBufferReady);    // SIGNAL(inBufferReady)
                 break;
 
+            case 127:
+                if (inBufIndx > 0) {
+                    inBuffer[--inBufIndx] = 0;
+                    printf("\b \b");
+                }
+                break;
+
             case 0x12:                       // ^R
+                printf("^R");
                 sigSignal(-1, mySIGCONT);
                 for (int taskId = 0; taskId < MAX_TASKS; taskId++) {
                     sigClearSignal(-1, mySIGSTOP);
@@ -110,10 +118,12 @@ static void keyboard_isr() {
                 break;
 
             case 0x17:                       // ^W
+                printf("^W");
                 sigSignal(-1, mySIGTSTP);
                 break;
 
             case 0x18:                       // ^X
+                printf("^X");
                 inBufIndx = 0;
                 inBuffer[0] = 0;
                 sigSignal(0, mySIGINT);      // interrupt task 0
