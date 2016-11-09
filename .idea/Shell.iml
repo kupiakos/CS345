@@ -6,10 +6,12 @@
       <sourceFolder url="file://$MODULE_DIR$/os345lc3.c" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/os345mmu.c" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/os345semaphores.c" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/pqueue.h" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/CMakeLists.txt" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/os345fat.c" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/os345park.h" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/os345lc3.h" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/pqueue.c" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/os345signals.h" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/os345park.c" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/os345signals.c" isTestSource="false" />
