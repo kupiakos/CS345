@@ -177,7 +177,6 @@ int groupReportTask(int argc, char *argv[]) {
         while (count-- > 0) {
             // update every second
             SEM_WAIT(tics1sec);
-
         }
 
         sum = 0;

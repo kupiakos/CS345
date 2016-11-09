@@ -68,7 +68,7 @@ jmp_buf k_context;                    // context of kernel stack
 jmp_buf reset_context;                // context of kernel stack
 volatile void *temp;                // temp pointer used in dispatcher
 
-int scheduler_mode;                    // scheduler mode
+int scheduler_mode;                    // scheduler mode (0 = round-robin, else = fair scheduler)
 int superMode;                        // system mode
 int curTask;                        // current task #
 long swapCount;                        // number of re-schedule cycles
@@ -181,20 +181,6 @@ int main(int argc, char *argv[]) {
 //
 static int scheduler() {
     int nextTask;
-    // ?? Design and implement a scheduler that will select the next highest
-    // ?? priority ready task to pass to the system dispatcher.
-
-    // ?? WARNING: You must NEVER call swapTask() from within this function
-    // ?? or any function that it calls.  This is because swapping is
-    // ?? handled entirely in the swapTask function, which, in turn, may
-    // ?? call this function.  (ie. You would create an infinite loop.)
-
-    // ?? Implement a round-robin, preemptive, prioritized scheduler.
-
-    // ?? This code is simply a round-robin scheduler and is just to get
-    // ?? you thinking about scheduling.  You must implement code to handle
-    // ?? priorities, clean up dead tasks, and handle semaphores appropriately.
-
     // schedule next task
     do {
         if ((nextTask = deQ(rq, -1)) >= 0) {
