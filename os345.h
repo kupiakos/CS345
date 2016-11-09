@@ -4,6 +4,9 @@
 //
 #ifndef __os345_h__
 #define __os345_h__
+
+#include <setjmp.h>
+#include "pqueue.h"
 // ***********************************************************************
 // ***********************************************************************
 // Context switching directives
@@ -78,6 +81,7 @@ typedef struct semaphore            // semaphore
     int state;                      // semaphore state
     int type;                       // semaphore type
     int taskNum;                    // semaphore creator task #
+    PQueue q;                       // blocked queue
 } Semaphore;
 
 // task control block

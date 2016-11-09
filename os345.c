@@ -18,8 +18,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
 #include <setjmp.h>
 #include <time.h>
 #include <assert.h>
@@ -28,7 +26,7 @@
 #include "os345signals.h"
 #include "os345config.h"
 #include "os345lc3.h"
-#include "os345fat.h"
+#include "pqueue.h"
 
 // **********************************************************************
 //	local prototypes
@@ -57,6 +55,7 @@ Semaphore *charReady;                // character has been entered
 Semaphore *inBufferReady;            // input buffer ready semaphore
 
 Semaphore *tics1sec;                // 1 second semaphore
+Semaphore *tics10sec;                // 10 second semaphore
 Semaphore *tics10thsec;                // 1/10 second semaphore
 
 // **********************************************************************
@@ -84,9 +83,10 @@ int lastPollClock;                    // last pollClock
 bool diskMounted;                    // disk has been mounted
 
 time_t oldTime1;                    // old 1sec time
+time_t oldTime10;                    // old 10sec time
 clock_t myClkTime;
 clock_t myOldClkTime;
-int *rq;                            // ready priority queue
+PQueue rq;                            // ready priority queue
 
 
 // **********************************************************************
@@ -136,6 +136,7 @@ int main(int argc, char *argv[]) {
     inBufferReady = createSemaphore("inBufferReady", BINARY, 0);
     keyboard = createSemaphore("keyboard", BINARY, 1);
     tics1sec = createSemaphore("tics1sec", BINARY, 0);
+    tics10sec = createSemaphore("tics10sec", COUNTING, 0);
     tics10thsec = createSemaphore("tics10thsec", BINARY, 0);
 
     //?? ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -195,14 +196,19 @@ static int scheduler() {
     // ?? priorities, clean up dead tasks, and handle semaphores appropriately.
 
     // schedule next task
-    nextTask = ++curTask;
+    do {
+        if ((nextTask = deQ(rq, -1)) >= 0) {
+            enQ(rq, nextTask, tcb[nextTask].priority);
+        } else {
+            return -1;
+        }
+        if (tcb[nextTask].state & S_EXIT || !tcb[nextTask].name) {
+            deQ(rq, nextTask);
+            nextTask = -1;
+        }
+    } while (nextTask == -1);
 
-    // mask sure nextTask is valid
-    while (!tcb[nextTask].name) {
-        if (++nextTask >= MAX_TASKS) nextTask = 0;
-    }
     if (tcb[nextTask].signal & mySIGSTOP) return -1;
-
     return nextTask;
 } // end scheduler
 
@@ -336,12 +342,13 @@ static int initOS() {
     diskMounted = 0;                    // disk has been mounted
 
     // malloc ready queue
-    rq = (int *) malloc(MAX_TASKS * sizeof(int));
+    rq = initQ();
     if (rq == NULL) return 99;
 
     // capture current time
     lastPollClock = clock();            // last pollClock
     time(&oldTime1);
+    time(&oldTime10);
 
     // init system tcb's
     for (i = 0; i < MAX_TASKS; i++) {
@@ -383,7 +390,7 @@ void powerDown(int code) {
         deleteSemaphore(&semaphoreList);
 
     // free ready queue
-    free(rq);
+    delQ(&rq);
 
     // ?? release any other system resources
     // ?? deltaclock (project 3)

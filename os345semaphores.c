@@ -29,6 +29,7 @@
 
 extern TCB tcb[];                            // task control block
 extern int curTask;                            // current task #
+extern PQueue rq;
 
 extern int superMode;                        // system mode
 extern Semaphore *semaphoreList;            // linked list of active semaphores
@@ -46,35 +47,36 @@ void semSignal(Semaphore *s) {
     // assert there is a semaphore and it is a legal type
     assert("semSignal Error" && s && ((s->type == 0) || (s->type == 1)));
 
-    // check semaphore type
-    if (s->type == 0) {
-        // binary semaphore
-        // look through tasks for one suspended on this semaphore
+    int tid;
+    do {
+        // check semaphore type
+        if (s->type == 0) {
+            // binary semaphore
+            s->state = 1;                        // nothing waiting, signal
 
-        temp:    // ?? temporary label
-        for (i = 0; i < MAX_TASKS; i++)    // look for suspended task
-        {
-            if (tcb[i].event == s) {
-                s->state = 0;                // clear semaphore
-                tcb[i].event = 0;            // clear event pointer
-                tcb[i].state = S_READY;    // unblock task
-
-                // ?? move task from blocked to ready queue
-
-                if (!superMode) swapTask();
+            if ((tid = deQ(s->q, -1)) < 0) {
+                // Nothing in the blocked queue, return immediately
                 return;
             }
-        }
-        // nothing waiting on semaphore, go ahead and just signal
-        s->state = 1;                        // nothing waiting, signal
-        if (!superMode) swapTask();
-        return;
-    } else {
-        // counting semaphore
-        // ?? implement counting semaphore
+            s->state = 0;  // still blocked b/c we're going to set another as ready
 
-        goto temp;
-    }
+        } else {
+            // counting semaphore
+            // ?? implement counting semaphore
+            // Add a resource.
+            if (++s->state > 0) {
+                assert(lenQ(s->q) >= 0);
+                return;
+            }
+            tid = deQ(s->q, -1);
+            // Should not be possible for our queue to be empty
+            assert(tid >= 0);
+        }
+    } while (tcb[tid].state == S_EXIT);
+    tcb[tid].event = 0; // clear event pointer
+    tcb[tid].state = S_READY;
+    enQ(rq, tid, tcb[tid].priority);
+    if (!superMode) swapTask();
 } // end semSignal
 
 
@@ -85,6 +87,7 @@ void semSignal(Semaphore *s) {
 //
 //	if semaphore is signaled, return immediately
 //	else block task
+//  return whether it was blocked
 //
 int semWait(Semaphore *s) {
     assert("semWait Error" && s);                                                // assert semaphore
@@ -94,27 +97,32 @@ int semWait(Semaphore *s) {
     // check semaphore type
     if (s->type == 0) {
         // binary semaphore
-        // if state is zero, then block task
-
-        temp:    // ?? temporary label
-        if (s->state == 0) {
-            tcb[curTask].event = s;        // block task
-            tcb[curTask].state = S_BLOCKED;
-
-            // ?? move task from ready queue to blocked queue
-
-            swapTask();                        // reschedule the tasks
-            return 1;
+        if (s->state == 1) { // Is the resource available?
+            // Resource available, return immediately
+            s->state = 0;
+            return 0;
         }
-        // state is non-zero (semaphore already signaled)
-        s->state = 0;                        // reset state, and don't block
-        return 0;
     } else {
         // counting semaphore
         // ?? implement counting semaphore
-
-        goto temp;
+        if (s->state-- >= 0) { // Consume. Is the resource available?
+            // Resource available, return immediately
+            return 0;
+        }
     }
+    // Resource not available.
+
+    // Block task.
+    tcb[curTask].event = s;
+    // Change task state to blocked
+    tcb[curTask].state = S_BLOCKED;
+    // Move from ready to blocked queue
+    deQ(rq, curTask);
+    enQ(s->q, curTask, tcb[curTask].priority);
+
+    // Reschedule
+    swapTask();
+    return 1;
 } // end semWait
 
 
@@ -131,24 +139,13 @@ int semTryLock(Semaphore *s) {
     assert("semTryLock Error" && ((s->type == 0) || (s->type == 1)));    // assert legal type
     assert("semTryLock Error" && !superMode);                                    // assert user mode
 
-    // check semaphore type
-    if (s->type == 0) {
-        // binary semaphore
-        // if state is zero, then block task
-
-        temp:    // ?? temporary label
-        if (s->state == 0) {
-            return 0;
-        }
-        // state is non-zero (semaphore already signaled)
-        s->state = 0;                        // reset state, and don't block
-        return 1;
-    } else {
-        // counting semaphore
-        // ?? implement counting semaphore
-
-        goto temp;
+    if (s->state <= 0) {
+        return 0;
     }
+    s->state--;
+    // Assert we're either a counting semaphore or the state is 0 (not negative)
+    assert(s->type == 1 || s->state == 0);
+    return 1;
 } // end semTryLock
 
 
@@ -194,6 +191,7 @@ Semaphore *createSemaphore(char *name, int type, int state) {
     sem->type = type;                            // 0=binary, 1=counting
     sem->state = state;                        // initial semaphore state
     sem->taskNum = curTask;                    // set parent task #
+    sem->q = initQ();
 
     // prepend to semaphore list
     sem->semLink = (struct semaphore *) semaphoreList;
