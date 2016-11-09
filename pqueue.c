@@ -72,5 +72,6 @@ int deQ(PQueue q, TID tid) {
 }
 
 void delQ(PQueue *q) {
-    free(q);
+    free(*q);
+    *q = NULL;
 }

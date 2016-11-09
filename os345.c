@@ -29,6 +29,7 @@
 #include "os345config.h"
 #include "os345lc3.h"
 #include "os345fat.h"
+#include "pqueue.h"
 
 // **********************************************************************
 //	local prototypes
@@ -86,7 +87,7 @@ bool diskMounted;                    // disk has been mounted
 time_t oldTime1;                    // old 1sec time
 clock_t myClkTime;
 clock_t myOldClkTime;
-int *rq;                            // ready priority queue
+PQueue rq;                            // ready priority queue
 
 
 // **********************************************************************
@@ -336,7 +337,7 @@ static int initOS() {
     diskMounted = 0;                    // disk has been mounted
 
     // malloc ready queue
-    rq = (int *) malloc(MAX_TASKS * sizeof(int));
+    rq = initQ();
     if (rq == NULL) return 99;
 
     // capture current time
@@ -383,7 +384,7 @@ void powerDown(int code) {
         deleteSemaphore(&semaphoreList);
 
     // free ready queue
-    free(rq);
+    delQ(&rq);
 
     // ?? release any other system resources
     // ?? deltaclock (project 3)
