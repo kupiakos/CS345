@@ -51,7 +51,7 @@ Command *newCommand(char *, char *, int (*func)(int, char **), char *);
 
 void mySigIntHandler() {
 //    printf("Hellomynameisinigomontoyayoukilledmyfatherpreparetodie");
-    killTask(-1);
+    sigSignal(-1, mySIGTERM);
 }
 
 static char *create_arg(const char *src, size_t str_size) {
@@ -359,6 +359,10 @@ int P1_project1(int argc, char *argv[]) {
                    argv);                // task argument pointers
     }
 } // end P1_project1
+
+int P1_dc(int argc, char *argv[]) {
+
+}
 
 
 int P1_args(int argc, char *argv[]) {

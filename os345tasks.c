@@ -200,7 +200,7 @@ int sysKillTask(int taskId) {
             deleteSemaphore(semLink);
         } else {
             // move to next semaphore
-            semLink = (Semaphore **) &sem->semLink;
+            semLink = &sem->semLink;
         }
     }
 
