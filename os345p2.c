@@ -101,39 +101,59 @@ int tenSecTask(int x, char **y) {
     while (semTryLock(tics10sec));
     while (1) {
         semWait(tics10sec);
-        printf("%d: %s (10 sec)\n", curTask, myTime(svtime));
+        printf("\n(10 sec), Task %d: %s\n", curTask, myTime(svtime));
     }
 }
 
+
+static void printTask(int tid);
 
 // ***********************************************************************
 // ***********************************************************************
 // list tasks command
 int P2_listTasks(int argc, char *argv[]) {
-    int i;
+    TID tids[MAX_TASKS];
 
 //	?? 1) List all tasks in all queues
 // ?? 2) Show the task stake (new, running, blocked, ready)
 // ?? 3) If blocked, indicate which semaphore
 
-    for (i = 0; i < MAX_TASKS; i++) {
-        if (tcb[i].name) {
-            printf("\n%4d/%-4d%20s%4d  ", i, tcb[i].parent,
-                   tcb[i].name, tcb[i].priority);
-            if (tcb[i].signal & mySIGSTOP) my_printf("Paused");
-            else if (tcb[i].state == S_NEW) my_printf("New");
-            else if (tcb[i].state == S_READY) my_printf("Ready");
-            else if (tcb[i].state == S_RUNNING) my_printf("Running");
-            else if (tcb[i].state == S_BLOCKED)
-                my_printf("Blocked    %s",
-                          tcb[i].event->name);
-            else if (tcb[i].state == S_EXIT) my_printf("Exiting");
-            swapTask();
+//    printf("\n%4s/%-4s%18s  %4s %10s %s",
+//        "id", "parent", "name", "pty", "State", "Reason"
+//    );
+
+    size_t num = listQ(rq, tids);
+    for (int i = 0; i < num; ++i) {
+        printTask(tids[i]);
+    }
+    for (Semaphore *s = semaphoreList; s != NULL; s = s->semLink) {
+        if (s->q == NULL || lenQ(s->q) == 0) {
+            continue;
+        }
+        num = listQ(s->q, tids);
+        for (int i = 0; i < num; ++i) {
+            printTask(tids[i]);
         }
     }
+
     return 0;
 } // end P2_listTasks
 
+static void printTask(int tid) {
+    if (tcb[tid].name) {
+        printf("\n%4d/%-4d%20s%4d  ", tid, tcb[tid].parent,
+               tcb[tid].name, tcb[tid].priority);
+        if (tcb[tid].signal & mySIGSTOP) my_printf("Paused");
+        else if (tcb[tid].state == S_NEW) my_printf("New");
+        else if (tcb[tid].state == S_READY) my_printf("Ready");
+        else if (tcb[tid].state == S_RUNNING) my_printf("Running");
+        else if (tcb[tid].state == S_BLOCKED)
+            my_printf("Blocked    %s",
+                      tcb[tid].event->name);
+        else if (tcb[tid].state == S_EXIT) my_printf("Exiting");
+        swapTask();
+    }
+}
 
 
 // ***********************************************************************

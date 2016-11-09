@@ -21,4 +21,6 @@ size_t lenQ(PQueue q);
 
 void delQ(PQueue *q);
 
+size_t listQ(PQueue q, TID *tids);
+
 #endif //SHELL_PQUEUE_H

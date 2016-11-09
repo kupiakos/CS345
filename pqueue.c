@@ -79,3 +79,17 @@ void delQ(PQueue *q) {
 size_t lenQ(PQueue q) {
     return q[0].size;
 }
+
+int compPriority(const void *i, const void *j) {
+    Priority pi = ((PQueue) i)->priority;
+    Priority pj = ((PQueue) j)->priority;
+    return pj - pi;
+}
+
+size_t listQ(PQueue q, TID *tids) {
+    qsort(q + 1, q[0].size, sizeof(*q), &compPriority);
+    for (int i = 1; i <= q[0].size; ++i) {
+        tids[i - 1] = q[i].tid;
+    }
+    return q[0].size;
+}
