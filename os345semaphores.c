@@ -29,6 +29,7 @@
 
 extern TCB tcb[];                            // task control block
 extern int curTask;                            // current task #
+extern PQueue rq;
 
 extern int superMode;                        // system mode
 extern Semaphore *semaphoreList;            // linked list of active semaphores
@@ -60,6 +61,8 @@ void semSignal(Semaphore *s) {
                 tcb[i].state = S_READY;    // unblock task
 
                 // ?? move task from blocked to ready queue
+                deQ(s->q, curTask);
+                enQ(rq, curTask, tcb[curTask].priority);
 
                 if (!superMode) swapTask();
                 return;
@@ -102,7 +105,8 @@ int semWait(Semaphore *s) {
             tcb[curTask].state = S_BLOCKED;
 
             // ?? move task from ready queue to blocked queue
-
+            deQ(rq, curTask);
+            enQ(s->q, curTask, tcb[curTask].priority);
             swapTask();                        // reschedule the tasks
             return 1;
         }
@@ -194,6 +198,7 @@ Semaphore *createSemaphore(char *name, int type, int state) {
     sem->type = type;                            // 0=binary, 1=counting
     sem->state = state;                        // initial semaphore state
     sem->taskNum = curTask;                    // set parent task #
+    sem->q = initQ();
 
     // prepend to semaphore list
     sem->semLink = (struct semaphore *) semaphoreList;

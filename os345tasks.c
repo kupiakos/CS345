@@ -26,11 +26,13 @@
 
 #include "os345.h"
 #include "os345signals.h"
+#include "pqueue.h"
 //#include "os345config.h"
 
 
 extern TCB tcb[];                            // task control block
 extern int curTask;                            // current task #
+extern PQueue rq;                            // ready priority queue
 
 extern int superMode;                        // system mode
 extern Semaphore *semaphoreList;            // linked list of active semaphores
@@ -125,7 +127,7 @@ int createTask(char *name,                  // task name
             // Each task must have its own stack and stack pointer.
             tcb[tid].stack = malloc(STACK_SIZE * sizeof(int));
 
-            // ?? may require inserting task into "ready" queue
+            enQ(rq, tid, tcb[tid].priority);
 
             if (tid) swapTask();             // do context switch (if not cli)
             return tid;                      // return tcb index (curTask)

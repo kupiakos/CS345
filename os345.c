@@ -18,8 +18,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
 #include <setjmp.h>
 #include <time.h>
 #include <assert.h>
@@ -28,7 +26,6 @@
 #include "os345signals.h"
 #include "os345config.h"
 #include "os345lc3.h"
-#include "os345fat.h"
 #include "pqueue.h"
 
 // **********************************************************************
@@ -196,14 +193,19 @@ static int scheduler() {
     // ?? priorities, clean up dead tasks, and handle semaphores appropriately.
 
     // schedule next task
-    nextTask = ++curTask;
+    do {
+        if ((nextTask = deQ(rq, -1)) >= 0) {
+            enQ(rq, nextTask, tcb[nextTask].priority);
+        } else {
+            return -1;
+        }
+        if (tcb[nextTask].state & S_EXIT || !tcb[nextTask].name) {
+            deQ(rq, nextTask);
+            nextTask = -1;
+        }
+    } while (nextTask != -1);
 
-    // mask sure nextTask is valid
-    while (!tcb[nextTask].name) {
-        if (++nextTask >= MAX_TASKS) nextTask = 0;
-    }
     if (tcb[nextTask].signal & mySIGSTOP) return -1;
-
     return nextTask;
 } // end scheduler
 
