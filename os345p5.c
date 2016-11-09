@@ -58,6 +58,9 @@ int P5_project5(int argc, char *argv[])        // project 5
     if (argc > 1) {
         scheduler_mode = atoi(argv[1]);
         printf("\nScheduler Mode = %d (%s)", scheduler_mode, scheduler_mode ? "FSS" : "RR");
+        for (i = 0; i < NUM_PARENTS; ++i) {
+            group_count[i] = 0;
+        }
         return 0;
     }
 
