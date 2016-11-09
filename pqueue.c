@@ -18,7 +18,7 @@ union PQueue_u {
 
 
 PQueue initQ() {
-    PQueue q = malloc((MAX_TASKS  + 1) * sizeof(union PQueue_u));
+    PQueue q = malloc((MAX_TASKS + 1) * sizeof(union PQueue_u));
     q[0].size = 0;
 }
 
@@ -74,4 +74,8 @@ int deQ(PQueue q, TID tid) {
 void delQ(PQueue *q) {
     free(*q);
     *q = NULL;
+}
+
+size_t lenQ(PQueue q) {
+    return q[0].size;
 }
