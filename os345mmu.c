@@ -22,9 +22,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
-#include <setjmp.h>
-#include <assert.h>
 #include "os345.h"
 #include "os345lc3.h"
 

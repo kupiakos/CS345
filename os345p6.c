@@ -20,7 +20,6 @@
 #include <string.h>
 #include <ctype.h>
 #include <time.h>
-#include <setjmp.h>
 #include <assert.h>
 #include "os345.h"
 #include "os345fat.h"
