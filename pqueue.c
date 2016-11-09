@@ -23,7 +23,7 @@ PQueue initQ() {
 }
 
 int enQ(PQueue q, TID tid, Priority p) {
-    PQueue entry = (q + q[0].size + 1);
+    PQueue entry = (q + ++q[0].size);
     entry->tid = tid;
     entry->priority = p;
     return tid;

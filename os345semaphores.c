@@ -58,7 +58,7 @@ void semSignal(Semaphore *s) {
                 // Nothing in the blocked queue, return immediately
                 return;
             }
-            s->state = 0;  // still blocked b/c we're going to pass it on
+            s->state = 0;  // still blocked b/c we're going to set another as ready
 
         } else {
             // counting semaphore
@@ -72,11 +72,11 @@ void semSignal(Semaphore *s) {
             // Should not be possible for our queue to be empty
             assert(tid >= 0);
         }
-    } while (tcb[tid].state != S_EXIT);
+    } while (tcb[tid].state == S_EXIT);
     tcb[tid].event = 0; // clear event pointer
     tcb[tid].state = S_READY;
     enQ(rq, tid, tcb[tid].priority);
-
+    if (!superMode) swapTask();
 } // end semSignal
 
 

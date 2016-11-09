@@ -206,7 +206,7 @@ static int scheduler() {
             deQ(rq, nextTask);
             nextTask = -1;
         }
-    } while (nextTask != -1);
+    } while (nextTask == -1);
 
     if (tcb[nextTask].signal & mySIGSTOP) return -1;
     return nextTask;
@@ -348,6 +348,7 @@ static int initOS() {
     // capture current time
     lastPollClock = clock();            // last pollClock
     time(&oldTime1);
+    time(&oldTime10);
 
     // init system tcb's
     for (i = 0; i < MAX_TASKS; i++) {

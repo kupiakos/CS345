@@ -31,11 +31,13 @@
 // project 2 variables
 static Semaphore *s1Sem;                    // task 1 semaphore
 static Semaphore *s2Sem;                    // task 2 semaphore
-static Semaphore *tics10sec;                    // task 2 semaphore
 
 extern TCB tcb[];                                // task control block
+extern PQueue rq;
 extern int curTask;                            // current task #
 extern Semaphore *semaphoreList;            // linked list of active semaphores
+extern Semaphore *tics1sec;
+extern Semaphore *tics10sec;
 extern jmp_buf reset_context;                // context of kernel stack
 
 // ***********************************************************************
@@ -58,12 +60,14 @@ int P2_project2(int argc, char *argv[]) {
     printf("\nStarting Project 2");
     SWAP;
 
-    createTask("10sec",
-               tenSecTask,
-               HIGH_PRIORITY,
-               0,
-               NULL
-    );
+    for (int i = 0; i < 9; ++i) {
+        createTask("10sec",
+                   tenSecTask,
+                   HIGH_PRIORITY,
+                   0,
+                   NULL
+        );
+    }
 
     // start tasks looking for sTask semaphores
     createTask("signal1",                // task name
