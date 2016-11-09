@@ -31,6 +31,7 @@
 // project 2 variables
 static Semaphore *s1Sem;                    // task 1 semaphore
 static Semaphore *s2Sem;                    // task 2 semaphore
+static Semaphore *tics10sec;                    // task 2 semaphore
 
 extern TCB tcb[];                                // task control block
 extern int curTask;                            // current task #
@@ -44,6 +45,8 @@ int signalTask(int, char **);
 
 int ImAliveTask(int, char **);
 
+int tenSecTask(int, char **);
+
 // ***********************************************************************
 // ***********************************************************************
 // project2 command
@@ -54,6 +57,13 @@ int P2_project2(int argc, char *argv[]) {
 
     printf("\nStarting Project 2");
     SWAP;
+
+    createTask("10sec",
+               tenSecTask,
+               HIGH_PRIORITY,
+               0,
+               NULL
+    );
 
     // start tasks looking for sTask semaphores
     createTask("signal1",                // task name
@@ -82,6 +92,14 @@ int P2_project2(int argc, char *argv[]) {
     return 0;
 } // end P2_project2
 
+int tenSecTask(int x, char **y) {
+    char svtime[64];
+    while (semTryLock(tics10sec));
+    while (1) {
+        semWait(tics10sec);
+        printf("%d: %s (10 sec)\n", curTask, myTime(svtime));
+    }
+}
 
 
 // ***********************************************************************

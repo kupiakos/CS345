@@ -55,6 +55,7 @@ Semaphore *charReady;                // character has been entered
 Semaphore *inBufferReady;            // input buffer ready semaphore
 
 Semaphore *tics1sec;                // 1 second semaphore
+Semaphore *tics10sec;                // 10 second semaphore
 Semaphore *tics10thsec;                // 1/10 second semaphore
 
 // **********************************************************************
@@ -82,6 +83,7 @@ int lastPollClock;                    // last pollClock
 bool diskMounted;                    // disk has been mounted
 
 time_t oldTime1;                    // old 1sec time
+time_t oldTime10;                    // old 10sec time
 clock_t myClkTime;
 clock_t myOldClkTime;
 PQueue rq;                            // ready priority queue
@@ -134,6 +136,7 @@ int main(int argc, char *argv[]) {
     inBufferReady = createSemaphore("inBufferReady", BINARY, 0);
     keyboard = createSemaphore("keyboard", BINARY, 1);
     tics1sec = createSemaphore("tics1sec", BINARY, 0);
+    tics10sec = createSemaphore("tics10sec", COUNTING, 0);
     tics10thsec = createSemaphore("tics10thsec", BINARY, 0);
 
     //?? ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

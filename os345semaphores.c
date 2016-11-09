@@ -63,9 +63,9 @@ void semSignal(Semaphore *s) {
         } else {
             // counting semaphore
             // ?? implement counting semaphore
-            // Add a resource. If this resulted in
+            // Add a resource.
             if (++s->state > 0) {
-                assert(lenQ(s->q) > 0);
+                assert(lenQ(s->q) >= 0);
                 return;
             }
             tid = deQ(s->q, -1);
