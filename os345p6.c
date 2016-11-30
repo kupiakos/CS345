@@ -40,34 +40,34 @@ extern int curTask;                        // current task #
 extern bool diskMounted;                // disk has been mounted
 
 FMSERROR FMSErrors[NUM_ERRORS] = {
-        {FATERR_INVALID_FILE_NAME, ERR50_MSG},  // Invalid File Name
-        {FATERR_INVALID_FILE_TYPE, ERR51_MSG},  // Invalid File Type
-        {FATERR_INVALID_DESCRIPTOR, ERR52_MSG},  // Invalid File Descriptor
-        {FATERR_INVALID_SECTOR, ERR53_MSG},  // Invalid Sector Number
-        {FATERR_INVALID_FAT_CHAIN, ERR54_MSG},  // Invalid FAT Chain
-        {FATERR_INVALID_DIRECTORY, ERR55_MSG},  // Invalid Directory
+        {FATERR_INVALID_FILE_NAME,       ERR50_MSG},  // Invalid File Name
+        {FATERR_INVALID_FILE_TYPE,       ERR51_MSG},  // Invalid File Type
+        {FATERR_INVALID_DESCRIPTOR,      ERR52_MSG},  // Invalid File Descriptor
+        {FATERR_INVALID_SECTOR,          ERR53_MSG},  // Invalid Sector Number
+        {FATERR_INVALID_FAT_CHAIN,       ERR54_MSG},  // Invalid FAT Chain
+        {FATERR_INVALID_DIRECTORY,       ERR55_MSG},  // Invalid Directory
 
-        {FATERR_FILE_ALREADY_DEFINED, ERR60_MSG},  // File Already Defined
-        {FATERR_FILE_NOT_DEFINED, ERR61_MSG},  // File Not Defined
-        {FATERR_FILE_ALREADY_OPEN, ERR62_MSG},  // File Already Open
-        {FATERR_FILE_NOT_OPEN, ERR63_MSG},  // File Not Open
-        {FATERR_FILE_DIRECTORY_FULL, ERR64_MSG},  // File Directory Full
-        {FATERR_FILE_SPACE_FULL, ERR65_MSG},  // File Space Full
-        {FATERR_END_OF_FILE, ERR66_MSG},  // End-Of-File
-        {FATERR_END_OF_DIRECTORY, ERR67_MSG},  // End-Of-Directory
-        {FATERR_DIRECTORY_NOT_FOUND, ERR68_MSG},  // Directory Not Found
-        {FATERR_CANNOT_DELETE, ERR69_MSG},  // Can Not Delete
+        {FATERR_FILE_ALREADY_DEFINED,    ERR60_MSG},  // File Already Defined
+        {FATERR_FILE_NOT_DEFINED,        ERR61_MSG},  // File Not Defined
+        {FATERR_FILE_ALREADY_OPEN,       ERR62_MSG},  // File Already Open
+        {FATERR_FILE_NOT_OPEN,           ERR63_MSG},  // File Not Open
+        {FATERR_FILE_DIRECTORY_FULL,     ERR64_MSG},  // File Directory Full
+        {FATERR_FILE_SPACE_FULL,         ERR65_MSG},  // File Space Full
+        {FATERR_END_OF_FILE,             ERR66_MSG},  // End-Of-File
+        {FATERR_END_OF_DIRECTORY,        ERR67_MSG},  // End-Of-Directory
+        {FATERR_DIRECTORY_NOT_FOUND,     ERR68_MSG},  // Directory Not Found
+        {FATERR_CANNOT_DELETE,           ERR69_MSG},  // Can Not Delete
 
-        {FATERR_TOO_MANY_OPEN, ERR70_MSG},  // Too Many Files Open
+        {FATERR_TOO_MANY_OPEN,           ERR70_MSG},  // Too Many Files Open
         {FATERR_OUT_OF_CONTIGUOUS_SPACE, ERR71_MSG},  // Not Enough Contiguous Space
-        {FATERR_DISK_NOT_MOUNTED, ERR72_MSG},  // Disk Not Mounted
+        {FATERR_DISK_NOT_MOUNTED,        ERR72_MSG},  // Disk Not Mounted
 
-        {FATERR_FILE_SEEK_ERROR, ERR80_MSG},  // File Seek Error
-        {FATERR_FILE_LOCKED, ERR81_MSG},  // File Locked
-        {FATERR_FILE_DELETE_PROTECTED, ERR82_MSG},  // File Delete Protected
-        {FATERR_FILE_WRITE_PROTECTED, ERR83_MSG},  // File Write Protected
-        {FATERR_READ_ONLY_FILE, ERR84_MSG},  // Read Only File
-        {FATERR_ACCESS_DENIED, ERR85_MSG}   // Illegal Access
+        {FATERR_FILE_SEEK_ERROR,         ERR80_MSG},  // File Seek Error
+        {FATERR_FILE_LOCKED,             ERR81_MSG},  // File Locked
+        {FATERR_FILE_DELETE_PROTECTED,   ERR82_MSG},  // File Delete Protected
+        {FATERR_FILE_WRITE_PROTECTED,    ERR83_MSG},  // File Write Protected
+        {FATERR_READ_ONLY_FILE,          ERR84_MSG},  // Read Only File
+        {FATERR_ACCESS_DENIED,           ERR85_MSG}   // Illegal Access
 };
 
 int sectorReads;
@@ -1102,7 +1102,8 @@ int fmsTests(int test, bool debug) {
             try(fmsChangeDir(buf2));
             // try to delete directory
             printf("\n  fmsDeleteFile(\"%s\")", buf);
-            if ((error = fmsDeleteFile(buf)) != FATERR_CANNOT_DELETE) FERROR("\nFailed fmsDeleteFile(\"%s\")", buf, error);
+            if ((error = fmsDeleteFile(buf)) != FATERR_CANNOT_DELETE) FERROR("\nFailed fmsDeleteFile(\"%s\")", buf,
+                                                                             error);
             printf(" Can Not Delete... Good!");
             // go back into directory
             printf("\n  fmsChangeDir(\"%s\")", buf);
@@ -1727,7 +1728,7 @@ int fmsUnMount(char *fileName, void *ramDisk)
 // This function unloads your Project 5 RAM disk image to file computer file.
 // The parameter fileName is the file path name of the disk image.
 // The pointer parameter ramDisk points to a character array whose size is equal to a 1.4
-// mb floppy disk (2849 � 512 bytes).
+// mb floppy disk (2849 / 512 bytes).
 // Return 0 for success; otherwise, return the error number.
 {
     diskMounted = 0;                            // unmount disk
@@ -1800,13 +1801,13 @@ unsigned short getFatEntry(int FATindex, unsigned char *FATtable) {
     {
         // Pull out a unsigned short from a unsigned char array
         FATEntryCode = *((unsigned short *) &FATtable[FatOffset]);
-        FATEntryCode = BigEndian(FATEntryCode);
+        FATEntryCode = (unsigned short) (BigEndian(FATEntryCode));
         FATEntryCode >>= 4;                    // Extract the high-order 12 bits
     } else                                                // If the index is even
     {
         // Pull out a unsigned short from a unsigned char array
         FATEntryCode = *((unsigned short *) &FATtable[FatOffset]);
-        FATEntryCode = BigEndian(FATEntryCode);
+        FATEntryCode = (unsigned short) (BigEndian(FATEntryCode));
         FATEntryCode &= 0x0fff;                // Extract the low-order 12 bits
     }
     return FATEntryCode;
