@@ -33,7 +33,7 @@ extern PQueue rq;
 
 extern int superMode;                        // system mode
 extern Semaphore *semaphoreList;            // linked list of active semaphores
-
+extern int scheduler_mode;
 
 // **********************************************************************
 // **********************************************************************
@@ -76,6 +76,7 @@ void semSignal(Semaphore *s) {
     tcb[tid].event = 0; // clear event pointer
     tcb[tid].state = S_READY;
     enQ(rq, tid, tcb[tid].priority);
+
     if (!superMode) swapTask();
 } // end semSignal
 
@@ -224,6 +225,9 @@ bool deleteSemaphore(Semaphore **semaphore) {
             // ?? free all semaphore memory
             // ?? What should you do if there are tasks in this
             //    semaphores blocked queue????
+            if (sem->q) {
+                delQ(&sem->q);
+            }
             free(sem->name);
             free(sem);
 

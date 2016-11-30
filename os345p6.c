@@ -874,7 +874,7 @@ void checkDirectory(char *dirName, unsigned char fat[], int dir) {
 
 #define try(s1) if((error=s1)<0){printf("\nFailed \"%s\"",#s1);fmsError(error);return error;}
 
-int fmsTests(int test, int debug);
+int fmsTests(int test, bool debug);
 
 extern int P6_fileSlots(int, char **);    // list open file slots
 extern int P6_dir(int, char **);            // list current directory

@@ -26,7 +26,6 @@
 #include "os345signals.h"
 #include "os345config.h"
 #include "os345lc3.h"
-#include "pqueue.h"
 
 // **********************************************************************
 //	local prototypes
@@ -87,6 +86,8 @@ time_t oldTime10;                    // old 10sec time
 clock_t myClkTime;
 clock_t myOldClkTime;
 PQueue rq;                            // ready priority queue
+int timeoutList[MAX_TASKS];          // items that have been timed out; exhausted their fair scheduling
+int timeoutCount;
 
 
 // **********************************************************************
@@ -173,7 +174,47 @@ int main(int argc, char *argv[]) {
     return 0;
 } // end main
 
+static void flushTimeout() {
+    while (timeoutCount > 0) {
+        TID tid = timeoutList[--timeoutCount];
+        enQ(rq, tid, tcb[tid].priority);
+    }
+}
 
+static void fairDistribute(TID parent, int amount, TID *tasks, size_t numTasks, TID *children) {
+    int numChildren = 0;
+    for (int i = 0; i < numTasks; ++i) {
+        TID child = tasks[i];
+        if (tcb[child].parent == parent && child != 0) {
+            children[numChildren++] = child;
+        }
+    }
+    if (numChildren > 0) {
+        // Distribute to each child
+        int childAmount = (amount / (numChildren + 1));
+        for (int i = 0; i < numChildren; ++i) {
+            // Give the child distribute a different chunk to store its children on. Saves a lot of stack space.
+            fairDistribute(children[i], childAmount, tasks, numTasks, children + numChildren);
+        }
+        tcb[parent].clocksLeft = amount - numChildren * (amount / (numChildren + 1));
+    } else {
+        tcb[parent].clocksLeft = amount;
+    }
+}
+
+
+static void retime() {
+    // Not a map from TID to children, that can be done with TCB.
+    // Used to store all children so we don't iterate a stupid number over the TCB.
+    // Also saves a lot of stack space
+    TID children[MAX_TASKS];
+    TID tasks[MAX_TASKS];
+    size_t numTasks;
+    // Compute fair scheduling task times
+    flushTimeout();
+    numTasks = listQ(rq, tasks);
+    fairDistribute(0, 50 * numTasks, tasks, numTasks, children);
+}
 
 // **********************************************************************
 // **********************************************************************
@@ -181,16 +222,37 @@ int main(int argc, char *argv[]) {
 //
 static int scheduler() {
     int nextTask;
+    // If we've recently switched to round robin,
+    // stop caring about exhausted times, so flush it back into the ready queue
+    if (scheduler_mode == 0 && timeoutCount > 0) {
+        flushTimeout();
+    }
+
     // schedule next task
     do {
         if ((nextTask = deQ(rq, -1)) >= 0) {
             enQ(rq, nextTask, tcb[nextTask].priority);
         } else {
-            return -1;
+            // No candidate tasks
+            if (scheduler_mode != 0 && timeoutCount > 0) {
+                // We simply need to retime, don't give up now.
+                retime();
+                continue;
+            } else {
+                return -1;
+            }
         }
-        if (tcb[nextTask].state & S_EXIT || !tcb[nextTask].name) {
+//        if (tcb[nextTask].state & S_EXIT || !tcb[nextTask].name) {
+//            // This is an invalid task and should be dequeued
+//            deQ(rq, nextTask);
+//            nextTask = -1;
+//            continue;
+//        }
+        if (scheduler_mode != 0 && tcb[nextTask].clocksLeft-- <= 0) {
+            // This task is exhausted and so we remove it from the queue and put it into the exhausted list
+            tcb[nextTask].clocksLeft = 0;
+            timeoutList[timeoutCount++] = nextTask;
             deQ(rq, nextTask);
-            nextTask = -1;
         }
     } while (nextTask == -1);
 
@@ -329,6 +391,7 @@ static int initOS() {
 
     // malloc ready queue
     rq = initQ();
+    timeoutCount = 0;
     if (rq == NULL) return 99;
 
     // capture current time

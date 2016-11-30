@@ -120,6 +120,7 @@ int createTask(char *name,                  // task name
             tcb[tid].event = 0;              // suspend semaphore
             tcb[tid].RPT = 0;                // root page table (project 5)
             tcb[tid].cdir = CDIR;            // inherit parent cDir (project 6)
+            tcb[tid].clocksLeft = 0;
 
             // define task signals
             createTaskSigHandlers(tid);

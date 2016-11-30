@@ -6,6 +6,7 @@
 #define __os345_h__
 
 #include <setjmp.h>
+#include <stdbool.h>
 #include "pqueue.h"
 // ***********************************************************************
 // ***********************************************************************
@@ -70,7 +71,7 @@ enum {
 
 // ***********************************************************************
 // system structs
-typedef int bool;                   // boolean value
+//typedef int bool;                   // boolean value
 typedef int TID;                    // task id
 
 // semaphore
@@ -105,6 +106,7 @@ typedef struct                      // task control block
     Semaphore *event;               // blocked task semaphore
     void *stack;                    // task stack
     jmp_buf context;                // task context pointer
+    int clocksLeft;                 // Fair scheduling timing clocks left to be scheduled
 } TCB;
 
 // Task specific variables
