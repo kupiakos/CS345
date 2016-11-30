@@ -177,34 +177,34 @@ int fmsDiskStats(DiskSize *dskSize);
 
 #define NUM_ERRORS   25
 
-#define ERR50        -50
-#define ERR51        -51
-#define ERR52        -52
-#define ERR53        -53
-#define ERR54        -54
-#define ERR55        -55
+#define FATERR_INVALID_FILE_NAME       -50
+#define FATERR_INVALID_FILE_TYPE       -51
+#define FATERR_INVALID_DESCRIPTOR      -52
+#define FATERR_INVALID_SECTOR          -53
+#define FATERR_INVALID_FAT_CHAIN       -54
+#define FATERR_INVALID_DIRECTORY       -55
 
-#define ERR60        -60
-#define ERR61        -61
-#define ERR62        -62
-#define ERR63        -63
-#define ERR64        -64
-#define ERR65        -65
-#define ERR66        -66
-#define ERR67        -67
-#define ERR68        -68
-#define ERR69        -69
+#define FATERR_FILE_ALREADY_DEFINED    -60
+#define FATERR_FILE_NOT_DEFINED        -61
+#define FATERR_FILE_ALREADY_OPEN       -62
+#define FATERR_FILE_NOT_OPEN           -63
+#define FATERR_FILE_DIRECTORY_FULL     -64
+#define FATERR_FILE_SPACE_FULL         -65
+#define FATERR_END_OF_FILE             -66
+#define FATERR_END_OF_DIRECTORY        -67
+#define FATERR_DIRECTORY_NOT_FOUND     -68
+#define FATERR_CANNOT_DELETE           -69
 
-#define ERR70        -70
-#define ERR71        -71
-#define ERR72        -72
+#define FATERR_TOO_MANY_OPEN           -70
+#define FATERR_OUT_OF_CONTIGUOUS_SPACE -71
+#define FATERR_DISK_NOT_MOUNTED        -72
 
-#define ERR80        -80
-#define ERR81        -81
-#define ERR82        -82
-#define ERR83        -83
-#define ERR84        -84
-#define ERR85        -85
+#define FATERR_FILE_SEEK_ERROR         -80
+#define FATERR_FILE_LOCKED             -81
+#define FATERR_FILE_DELETE_PROTECTED   -82
+#define FATERR_FILE_WRITE_PROTECTED    -83
+#define FATERR_READ_ONLY_FILE          -84
+#define FATERR_ACCESS_DENIED           -85
 
 #define UNDEFINED    -1
 
@@ -224,7 +224,7 @@ int fmsDiskStats(DiskSize *dskSize);
 #define ERR66_MSG "End-Of-File"
 #define ERR67_MSG "End-Of-Directory"
 #define ERR68_MSG "Directory Not Found"
-#define ERR69_MSG "Can Not Delete"
+#define ERR69_MSG "Cannot Delete"
 
 #define ERR70_MSG "Too Many Files Open"
 #define ERR71_MSG "Not Enough Contiguous Space"

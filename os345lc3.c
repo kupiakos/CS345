@@ -503,7 +503,7 @@ int loadLC3Program(char *argv[]) {
                 sscanf(buf, "%x", &data);
                 setMemoryData(address++, data);
             }
-            if ((error != ERR66) && error) fmsError(error);
+            if ((error != FATERR_END_OF_FILE) && error) fmsError(error);
             error = fmsCloseFile(fd);
             if (error) fmsError(error);
             break;

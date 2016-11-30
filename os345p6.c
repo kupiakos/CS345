@@ -40,34 +40,34 @@ extern int curTask;                        // current task #
 extern bool diskMounted;                // disk has been mounted
 
 FMSERROR FMSErrors[NUM_ERRORS] = {
-        {ERR50, ERR50_MSG},  // Invalid File Name
-        {ERR51, ERR51_MSG},  // Invalid File Type
-        {ERR52, ERR52_MSG},  // Invalid File Descriptor
-        {ERR53, ERR53_MSG},  // Invalid Sector Number
-        {ERR54, ERR54_MSG},  // Invalid FAT Chain
-        {ERR55, ERR55_MSG},  // Invalid Directory
+        {FATERR_INVALID_FILE_NAME, ERR50_MSG},  // Invalid File Name
+        {FATERR_INVALID_FILE_TYPE, ERR51_MSG},  // Invalid File Type
+        {FATERR_INVALID_DESCRIPTOR, ERR52_MSG},  // Invalid File Descriptor
+        {FATERR_INVALID_SECTOR, ERR53_MSG},  // Invalid Sector Number
+        {FATERR_INVALID_FAT_CHAIN, ERR54_MSG},  // Invalid FAT Chain
+        {FATERR_INVALID_DIRECTORY, ERR55_MSG},  // Invalid Directory
 
-        {ERR60, ERR60_MSG},  // File Already Defined
-        {ERR61, ERR61_MSG},  // File Not Defined
-        {ERR62, ERR62_MSG},  // File Already Open
-        {ERR63, ERR63_MSG},  // File Not Open
-        {ERR64, ERR64_MSG},  // File Directory Full
-        {ERR65, ERR65_MSG},  // File Space Full
-        {ERR66, ERR66_MSG},  // End-Of-File
-        {ERR67, ERR67_MSG},  // End-Of-Directory
-        {ERR68, ERR68_MSG},  // Directory Not Found
-        {ERR69, ERR69_MSG},  // Can Not Delete
+        {FATERR_FILE_ALREADY_DEFINED, ERR60_MSG},  // File Already Defined
+        {FATERR_FILE_NOT_DEFINED, ERR61_MSG},  // File Not Defined
+        {FATERR_FILE_ALREADY_OPEN, ERR62_MSG},  // File Already Open
+        {FATERR_FILE_NOT_OPEN, ERR63_MSG},  // File Not Open
+        {FATERR_FILE_DIRECTORY_FULL, ERR64_MSG},  // File Directory Full
+        {FATERR_FILE_SPACE_FULL, ERR65_MSG},  // File Space Full
+        {FATERR_END_OF_FILE, ERR66_MSG},  // End-Of-File
+        {FATERR_END_OF_DIRECTORY, ERR67_MSG},  // End-Of-Directory
+        {FATERR_DIRECTORY_NOT_FOUND, ERR68_MSG},  // Directory Not Found
+        {FATERR_CANNOT_DELETE, ERR69_MSG},  // Can Not Delete
 
-        {ERR70, ERR70_MSG},  // Too Many Files Open
-        {ERR71, ERR71_MSG},  // Not Enough Contiguous Space
-        {ERR72, ERR72_MSG},  // Disk Not Mounted
+        {FATERR_TOO_MANY_OPEN, ERR70_MSG},  // Too Many Files Open
+        {FATERR_OUT_OF_CONTIGUOUS_SPACE, ERR71_MSG},  // Not Enough Contiguous Space
+        {FATERR_DISK_NOT_MOUNTED, ERR72_MSG},  // Disk Not Mounted
 
-        {ERR80, ERR80_MSG},  // File Seek Error
-        {ERR81, ERR81_MSG},  // File Locked
-        {ERR82, ERR82_MSG},  // File Delete Protected
-        {ERR83, ERR83_MSG},  // File Write Protected
-        {ERR84, ERR84_MSG},  // Read Only File
-        {ERR85, ERR85_MSG}   // Illegal Access
+        {FATERR_FILE_SEEK_ERROR, ERR80_MSG},  // File Seek Error
+        {FATERR_FILE_LOCKED, ERR81_MSG},  // File Locked
+        {FATERR_FILE_DELETE_PROTECTED, ERR82_MSG},  // File Delete Protected
+        {FATERR_FILE_WRITE_PROTECTED, ERR83_MSG},  // File Write Protected
+        {FATERR_READ_ONLY_FILE, ERR84_MSG},  // Read Only File
+        {FATERR_ACCESS_DENIED, ERR85_MSG}   // Illegal Access
 };
 
 int sectorReads;
@@ -95,7 +95,7 @@ int P6_project6(int argc, char *argv[]) {
     }
 
     if (!diskMounted) {
-        fmsError(ERR72);
+        fmsError(FATERR_DISK_NOT_MOUNTED);
         return 0;
     }
 
@@ -119,11 +119,11 @@ int P6_cd(int argc, char *argv[])            // change directory
     }
 
     if (!diskMounted) {
-        fmsError(ERR72);
+        fmsError(FATERR_DISK_NOT_MOUNTED);
         return 0;
     }
     if (!(error = fmsChangeDir(argv[1]))) return 0;
-    if (error == ERR67) error = ERR68;
+    if (error == FATERR_END_OF_DIRECTORY) error = FATERR_DIRECTORY_NOT_FOUND;
     fmsError(error);
     return 0;
 } // end P6_cd
@@ -141,7 +141,7 @@ int P6_dir(int argc, char *argv[])        // list directory
     int error = 0;
 
     if (!diskMounted) {
-        fmsError(ERR72);
+        fmsError(FATERR_DISK_NOT_MOUNTED);
         return 0;
     }
     if (argc < 2) strcpy(mask, "*.*");
@@ -152,7 +152,7 @@ int P6_dir(int argc, char *argv[])        // list directory
     while (1) {
         error = fmsGetNextDirEntry(&index, mask, &dirEntry, CDIR);
         if (error) {
-            if (error != ERR67) fmsError(error);
+            if (error != FATERR_END_OF_DIRECTORY) fmsError(error);
             break;
         }
         printDirectoryEntry(&dirEntry);
@@ -200,7 +200,7 @@ int P6_dfat(int argc, char *argv[])        // list FAT table
     //		4	fat <#>,<s>,<e>	output fat table <#> from <s> to <e>
 
     if (!diskMounted) {
-        fmsError(ERR72);
+        fmsError(FATERR_DISK_NOT_MOUNTED);
         return 0;
     }
     switch (argc) {
@@ -302,7 +302,7 @@ int P6_run(int argc, char *argv[])        // run lc3 program from RAM disk
     char *myArgv[] = {"1", ""};
 
     if (!diskMounted) {
-        fmsError(ERR72);
+        fmsError(FATERR_DISK_NOT_MOUNTED);
         return 0;
     }
     if (argc < 2) {
@@ -329,7 +329,7 @@ int P6_space(int argc, char *argv[]) {
     DiskSize dskSize;
 
     if (!diskMounted) {
-        fmsError(ERR72);
+        fmsError(FATERR_DISK_NOT_MOUNTED);
         return 0;
     }
     fmsDiskStats(&dskSize);
@@ -350,7 +350,7 @@ int P6_type(int argc, char *argv[])        // display file
     char buffer[4];
 
     if (!diskMounted) {
-        fmsError(ERR72);
+        fmsError(FATERR_DISK_NOT_MOUNTED);
         return 0;
     }
     if (argc < 2) {
@@ -368,7 +368,7 @@ int P6_type(int argc, char *argv[])        // display file
         putchar(buffer[0]);
         SWAP;
     }
-    if (nBytes != ERR66) fmsError(nBytes);
+    if (nBytes != FATERR_END_OF_FILE) fmsError(nBytes);
     if (error = fmsCloseFile(FDs)) fmsError(error);
     return 0;
 } // end P6_type
@@ -384,7 +384,7 @@ int P6_copy(int argc, char *argv[])            // copy file
     char buffer[BYTES_PER_SECTOR];
 
     if (!diskMounted) {
-        fmsError(ERR72);
+        fmsError(FATERR_DISK_NOT_MOUNTED);
         return 0;
     }
     if (argc < 3) {
@@ -414,7 +414,7 @@ int P6_copy(int argc, char *argv[])            // copy file
         if (error < 0) break;
         //for (error=0; error<nBytes; error++) putchar(buffer[error]);
     }
-    if (nBytes != ERR66) fmsError(nBytes);
+    if (nBytes != FATERR_END_OF_FILE) fmsError(nBytes);
     if (error) fmsError(error);
 
     error = fmsCloseFile(FDs);
@@ -435,7 +435,7 @@ int P6_define(int argc, char *argv[])            // define file
     int error;
 
     if (!diskMounted) {
-        fmsError(ERR72);
+        fmsError(FATERR_DISK_NOT_MOUNTED);
         return 0;
     }
     if (argc < 2) {
@@ -458,7 +458,7 @@ int P6_del(int argc, char *argv[])                // delete file
     int error;
 
     if (!diskMounted) {
-        fmsError(ERR72);
+        fmsError(FATERR_DISK_NOT_MOUNTED);
         return 0;
     }
     if (argc < 2) {
@@ -481,7 +481,7 @@ int P6_mkdir(int argc, char *argv[])                // create directory file
     int error;
 
     if (!diskMounted) {
-        fmsError(ERR72);
+        fmsError(FATERR_DISK_NOT_MOUNTED);
         return 0;
     }
     if (argc < 2) {
@@ -504,7 +504,7 @@ int P6_unmount(int argc, char *argv[])            // save ram disk
     int error;
 
     if (!diskMounted) {
-        fmsError(ERR72);
+        fmsError(FATERR_DISK_NOT_MOUNTED);
         return 0;
     }
     if (argc < 2) {
@@ -528,7 +528,7 @@ int P6_dumpSector(int argc, char *argv[])    // dump RAM disk sector
     int sector;
 
     if (!diskMounted) {
-        fmsError(ERR72);
+        fmsError(FATERR_DISK_NOT_MOUNTED);
         return 0;
     }
     printf("\nValidate arguments...");    // ?? validate arguments
@@ -703,7 +703,7 @@ int P6_chkdsk(int argc, char *argv[])        // check RAM disk
     unsigned char fat[CLUSTERS_PER_DISK];
 
     if (!diskMounted) {
-        fmsError(ERR72);
+        fmsError(FATERR_DISK_NOT_MOUNTED);
         return 0;
     }
     printf("\nChecking disk...");
@@ -884,7 +884,7 @@ int P6_finalTest(int argc, char *argv[]) {
     int finalDebug = 0;
 
     if (!diskMounted) {
-        fmsError(ERR72);
+        fmsError(FATERR_DISK_NOT_MOUNTED);
         return 0;
     }
     if (argc < 2) {
@@ -1029,7 +1029,7 @@ int fmsTests(int test, bool debug) {
             try(tFID[test2] = fmsOpenFile(buf2, OPEN_READ));
             rBuf[0] = 0;
             while ((error = fmsReadFile(tFID[test2], buf, 1)) > 0) strncat(rBuf, buf, 1);
-            if ((error < 0) & (error != ERR66)) FERROR("\nFailed fmsReadFile(%d)", tFID[test2], error);
+            if ((error < 0) & (error != FATERR_END_OF_FILE)) FERROR("\nFailed fmsReadFile(%d)", tFID[test2], error);
             printf("\n  %s", rBuf);
 
             if (debug) printf("\n  fmsCloseFile(%d)", test2);
@@ -1102,7 +1102,7 @@ int fmsTests(int test, bool debug) {
             try(fmsChangeDir(buf2));
             // try to delete directory
             printf("\n  fmsDeleteFile(\"%s\")", buf);
-            if ((error = fmsDeleteFile(buf)) != ERR69) FERROR("\nFailed fmsDeleteFile(\"%s\")", buf, error);
+            if ((error = fmsDeleteFile(buf)) != FATERR_CANNOT_DELETE) FERROR("\nFailed fmsDeleteFile(\"%s\")", buf, error);
             printf(" Can Not Delete... Good!");
             // go back into directory
             printf("\n  fmsChangeDir(\"%s\")", buf);
@@ -1548,12 +1548,12 @@ int fmsGetDirEntry(char *fileName, DirEntry *dirEntry)
 //    specified by fileName.
 // Return 0 for success; otherwise, return an error number.
 //
-//    ERR61 = File Not Defined
+//    FATERR_FILE_NOT_DEFINED = File Not Defined
 {
     int error, index = 0;
-    //if (isValidFileName(fileName) < 1) return ERR50;
+    //if (isValidFileName(fileName) < 1) return FATERR_INVALID_FILE_NAME;
     error = fmsGetNextDirEntry(&index, fileName, dirEntry, CDIR);
-    return (error ? ((error == ERR67) ? ERR61 : error) : 0);
+    return (error ? ((error == FATERR_END_OF_DIRECTORY) ? FATERR_FILE_NOT_DEFINED : error) : 0);
 } // end fmsGetDirEntry
 
 
@@ -1577,8 +1577,8 @@ int fmsGetNextDirEntry(int *dirNum, char *mask, DirEntry *dirEntry, int dir)
 //		a*.txt	all files beginning with the character 'a' and with a .txt extension
 //	Return 0 for success, otherwise, return the error number.
 //
-//    ERR54 = Invalid FAT Chain
-//    ERR67 = End of Directory
+//    FATERR_INVALID_FAT_CHAIN = Invalid FAT Chain
+//    FATERR_END_OF_DIRECTORY = End of Directory
 {
     char buffer[BYTES_PER_SECTOR];
     int dirIndex, dirSector, error;
@@ -1589,14 +1589,14 @@ int fmsGetNextDirEntry(int *dirNum, char *mask, DirEntry *dirEntry, int dir)
         if (dir) {    // sub directory
             while (loop--) {
                 dirCluster = getFatEntry(dirCluster, FAT1);
-                if (dirCluster == FAT_EOC) return ERR67;
-                if (dirCluster == FAT_BAD) return ERR54;
-                if (dirCluster < 2) return ERR54;
+                if (dirCluster == FAT_EOC) return FATERR_END_OF_DIRECTORY;
+                if (dirCluster == FAT_BAD) return FATERR_INVALID_FAT_CHAIN;
+                if (dirCluster < 2) return FATERR_INVALID_FAT_CHAIN;
             }
             dirSector = C_2_S(dirCluster);
         } else {    // root directory
             dirSector = (*dirNum / ENTRIES_PER_SECTOR) + BEG_ROOT_SECTOR;
-            if (dirSector >= BEG_DATA_SECTOR) return ERR67;
+            if (dirSector >= BEG_DATA_SECTOR) return FATERR_END_OF_DIRECTORY;
         }
 
         // read sector into directory buffer
@@ -1606,7 +1606,7 @@ int fmsGetNextDirEntry(int *dirNum, char *mask, DirEntry *dirEntry, int dir)
         while (1) {    // read directory entry
             dirIndex = *dirNum % ENTRIES_PER_SECTOR;
             memcpy(dirEntry, &buffer[dirIndex * sizeof(DirEntry)], sizeof(DirEntry));
-            if (dirEntry->name[0] == 0) return ERR67;    // EOD
+            if (dirEntry->name[0] == 0) return FATERR_END_OF_DIRECTORY;    // EOD
             (*dirNum)++;                                // prepare for next read
             if (dirEntry->name[0] == 0xe5);            // Deleted entry, go on...
             else if (dirEntry->attributes == LONGNAME);
@@ -1636,9 +1636,9 @@ int fmsChangeDir(char *dirName)
     DirEntry dirEntry;
 
     // need to allow for . and ..
-    //if (isValidFileName(dirName) < 1) return ERR50;
+    //if (isValidFileName(dirName) < 1) return FATERR_INVALID_FILE_NAME;
     if ((error = fmsGetDirEntry(dirName, &dirEntry))) return error;
-    if (dirEntry.attributes != DIRECTORY) return ERR55;
+    if (dirEntry.attributes != DIRECTORY) return FATERR_INVALID_DIRECTORY;
     CDIR = dirEntry.startCluster;
 
     // keep track of path name

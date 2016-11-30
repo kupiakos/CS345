@@ -103,7 +103,7 @@ int fmsCloseFile(int fileDescriptor) {
     // ?? add code here
     printf("\nfmsCloseFile Not Implemented");
 
-    return ERR63;
+    return FATERR_FILE_NOT_OPEN;
 } // end fmsCloseFile
 
 
@@ -128,7 +128,7 @@ int fmsDefineFile(char *fileName, int attribute) {
     // ?? add code here
     printf("\nfmsDefineFile Not Implemented");
 
-    return ERR72;
+    return FATERR_DISK_NOT_MOUNTED;
 } // end fmsDefineFile
 
 
@@ -144,7 +144,7 @@ int fmsDeleteFile(char *fileName) {
     // ?? add code here
     printf("\nfmsDeleteFile Not Implemented");
 
-    return ERR61;
+    return FATERR_FILE_NOT_DEFINED;
 } // end fmsDeleteFile
 
 
@@ -174,7 +174,7 @@ int fmsOpenFile(char *fileName, int rwMode) {
     // ?? add code here
     printf("\nfmsOpenFile Not Implemented");
 
-    return ERR61;
+    return FATERR_FILE_NOT_DEFINED;
 } // end fmsOpenFile
 
 
@@ -193,7 +193,7 @@ int fmsReadFile(int fileDescriptor, char *buffer, int nBytes) {
     // ?? add code here
     printf("\nfmsReadFile Not Implemented");
 
-    return ERR63;
+    return FATERR_FILE_NOT_OPEN;
 } // end fmsReadFile
 
 
@@ -210,7 +210,7 @@ int fmsSeekFile(int fileDescriptor, int index) {
     // ?? add code here
     printf("\nfmsSeekFile Not Implemented");
 
-    return ERR63;
+    return FATERR_FILE_NOT_OPEN;
 } // end fmsSeekFile
 
 
@@ -228,5 +228,5 @@ int fmsWriteFile(int fileDescriptor, char *buffer, int nBytes) {
     // ?? add code here
     printf("\nfmsWriteFile Not Implemented");
 
-    return ERR63;
+    return FATERR_FILE_NOT_OPEN;
 } // end fmsWriteFile
