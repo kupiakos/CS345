@@ -20,11 +20,7 @@
 //
 // ***********************************************************************
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
-#include <setjmp.h>
-#include <assert.h>
 #include "os345.h"
 #include "os345fat.h"
 
@@ -86,7 +82,7 @@ unsigned char FAT1[NUM_FAT_SECTORS * BYTES_PER_SECTOR];
 unsigned char FAT2[NUM_FAT_SECTORS * BYTES_PER_SECTOR];
 
 char dirPath[128];                            // current directory path
-FDEntry OFTable[NFILES];                    // open file table
+FDEntry OFTable[MAX_OPEN_FILES];                    // open file table
 
 extern bool diskMounted;                    // disk has been mounted
 extern TCB tcb[];                            // task control block
@@ -100,10 +96,17 @@ extern int curTask;                            // current task #
 //	Return 0 for success, otherwise, return the error number.
 //
 int fmsCloseFile(int fileDescriptor) {
-    // ?? add code here
-    printf("\nfmsCloseFile Not Implemented");
+    if (!IsValidFd(fileDescriptor)) {
+        return FATERR_INVALID_DESCRIPTOR;
+    }
+    FDEntry *fdEntry = &OFTable[fileDescriptor];
+    if (fdEntry->name[0] == 0) return FATERR_FILE_NOT_OPEN;
 
-    return FATERR_FILE_NOT_OPEN;
+    // TODO: Flush if buffer altered (really should just have flush function)
+
+    fdEntry->name[0] = 0;
+
+    return FATERR_SUCCESS;
 } // end fmsCloseFile
 
 
@@ -171,10 +174,64 @@ int fmsDeleteFile(char *fileName) {
 // handling functions; otherwise, return the error number.
 //
 int fmsOpenFile(char *fileName, int rwMode) {
-    // ?? add code here
-    printf("\nfmsOpenFile Not Implemented");
+    if (!IsValidOpenMode(rwMode)) {
+        return FATERR_INVALID_MODE;
+    }
+    int err;
 
-    return FATERR_FILE_NOT_DEFINED;
+    // Get the associated directory entry
+    DirEntry dirEntry;
+    if ((err = fmsGetDirEntry(fileName, &dirEntry)) != 0) {
+        return err;
+    }
+    if (dirEntry.name[0] == 0 || dirEntry.name[0] == ' ') {
+        return FATERR_INVALID_FILE_NAME;
+    }
+
+    // Find an available file descriptor (and ensure the file is not opened)
+    // Go backwards so we can check every file but also get the lowest available fd
+    int newFd = -1;
+    for (int checkFd = MAX_OPEN_FILES - 1; checkFd >= 0; ++checkFd) {
+        FDEntry *checkEntry = &OFTable[checkFd];
+
+        if (checkEntry->name[0] == 0) {
+            newFd = checkFd;
+        } else if (checkEntry->startCluster == dirEntry.startCluster) {
+            return FATERR_FILE_ALREADY_OPEN;
+        }
+    }
+    if (newFd == -1) {
+        return FATERR_TOO_MANY_OPEN;
+    }
+    FDEntry *fdEntry = &OFTable[newFd];
+
+    // Copy data from dirEntry into fdEntry
+    // (the descriptor is now "used" as the name is set)
+    memccpy(fdEntry->name, dirEntry.name, 8, 1);
+    memccpy(fdEntry->extension, dirEntry.extension, 3, 1);
+    fdEntry->attributes = dirEntry.attributes;
+    // TODO: Verify
+    fdEntry->directoryCluster = (uint16) CDIR;
+    fdEntry->startCluster = dirEntry.startCluster;
+    fdEntry->currentCluster = 0;
+    fdEntry->fileSize = dirEntry.fileSize;
+    fdEntry->pid = curTask;
+    fdEntry->mode = (char) rwMode;
+    fdEntry->flags = 0;
+    fdEntry->fileIndex = 0;
+    memset(fdEntry->buffer, 0, sizeof(fdEntry->buffer));
+
+    if (rwMode == OPEN_WRITE || rwMode == OPEN_RDWR) {
+        // TODO: Change modification date
+    }
+    if (rwMode == OPEN_WRITE) {
+        // TODO: Clear file on open with write
+    }
+    if (rwMode == OPEN_APPEND) {
+        fmsSeekFile(newFd, fdEntry->fileSize);
+    }
+
+    return newFd;
 } // end fmsOpenFile
 
 
@@ -189,12 +246,64 @@ int fmsOpenFile(char *fileName, int rwMode) {
 // (If you are already at the end of the file, return EOF error.  ie. you should never
 // return a 0.)
 //
+// wtf: nBytes should be a size_t or uint32!
 int fmsReadFile(int fileDescriptor, char *buffer, int nBytes) {
-    // ?? add code here
-    printf("\nfmsReadFile Not Implemented");
-
-    return FATERR_FILE_NOT_OPEN;
+    if (!IsValidFd(fileDescriptor)) {
+        return FATERR_INVALID_DESCRIPTOR;
+    }
+    int error;
+    uint16 nextCluster;
+    FDEntry *fdEntry;
+    int numBytesRead = 0;
+    unsigned int bufferIndex;
+    uint32 bytesLeft;
+    fdEntry = &OFTable[fileDescriptor];
+    if (fdEntry->name[0] == 0)
+        return FATERR_FILE_NOT_OPEN;
+    if ((fdEntry->mode == 1) || (fdEntry->mode == 2))
+        return FATERR_ILLEGAL_ACCESS;
+    while (nBytes > 0) {
+        // wtf: wouldn't it make more sense to just return 0 rather than an "error"?
+        if (fdEntry->fileSize == fdEntry->fileIndex)
+            return (numBytesRead ? numBytesRead : FATERR_END_OF_FILE);
+        bufferIndex = fdEntry->fileIndex % BYTES_PER_SECTOR;
+        if ((bufferIndex == 0) && (fdEntry->fileIndex || !fdEntry->currentCluster)) {
+            if (fdEntry->currentCluster == 0) {
+                if (fdEntry->startCluster == 0) return FATERR_END_OF_FILE;
+                nextCluster = fdEntry->startCluster;
+                fdEntry->fileIndex = 0;
+            } else {
+                nextCluster = getFatEntry(fdEntry->currentCluster, FAT1);
+                if (nextCluster == FAT_EOC) return numBytesRead;
+            }
+            if (fdEntry->flags & BUFFER_ALTERED) {
+                // isn't it possible for sector size != cluster size?
+                if ((error = fmsWriteSector(fdEntry->buffer,
+                                            C_2_S(fdEntry->currentCluster))))
+                    return error;
+                fdEntry->flags &= ~BUFFER_ALTERED;
+            }
+            fdEntry->flags |= BUFFER_NOT_READ;
+            fdEntry->currentCluster = nextCluster;
+        }
+        if (fdEntry->flags & BUFFER_NOT_READ) {
+            if ((error = fmsReadSector(fdEntry->buffer, C_2_S(fdEntry->currentCluster))))
+                return error;
+            fdEntry->flags &= ~BUFFER_NOT_READ;
+        }
+        bytesLeft = BYTES_PER_SECTOR - bufferIndex;
+        if (bytesLeft > nBytes) bytesLeft = (uint32) nBytes;
+        if (bytesLeft > (fdEntry->fileSize - fdEntry->fileIndex))
+            bytesLeft = fdEntry->fileSize - fdEntry->fileIndex;
+        memcpy(buffer, &fdEntry->buffer[bufferIndex], bytesLeft);
+        fdEntry->fileIndex += bytesLeft;
+        numBytesRead += bytesLeft;
+        buffer += bytesLeft;
+        nBytes -= bytesLeft;
+    }
+    return numBytesRead;
 } // end fmsReadFile
+
 
 
 
@@ -207,10 +316,52 @@ int fmsReadFile(int fileDescriptor, char *buffer, int nBytes) {
 // Return the new position in the file if successful; otherwise, return the error number.
 //
 int fmsSeekFile(int fileDescriptor, int index) {
-    // ?? add code here
-    printf("\nfmsSeekFile Not Implemented");
+    if (!IsValidFd(fileDescriptor)) {
+        return FATERR_INVALID_DESCRIPTOR;
+    }
+    FDEntry *fdEntry = &OFTable[fileDescriptor];
+    if (fdEntry->name[0] == 0) return FATERR_FILE_NOT_OPEN;
 
-    return FATERR_FILE_NOT_OPEN;
+    // wtf: Why can't you seek if you're writing? Makes no sense.
+    if (fdEntry->mode != OPEN_READ && fdEntry->mode != OPEN_RDWR) {
+        return FATERR_FILE_SEEK_ERROR;
+    }
+    // The index for the end of the file is fileSize.
+    // Index 0 is the beginning of the file.
+    // If the file is 0 bytes, index 0 is to read/write at the end.
+    // If the file is n bytes, index n-1 is the last byte.
+    // Therefore, it is valid for index to equal fdEntry->fileSize.
+    if (index > fdEntry->fileSize) {
+        // The docs don't say *what* to do when index is outside the bounds of the file.
+        // It just says "the file position may not be positioned beyond the end of the file".
+        // I choose to interpret this as bounding it to the end of the file.
+        // Fun fact: POSIX says you can go past the end of the file,
+        //           and any read from the gap will return zero bytes.
+        //           This will also define a sparse file when possible.
+        index = fdEntry->fileSize;
+    } else if (index < 0) {
+        // Nifty extra: pass in a negative index to go relative to the end of the file.
+        // -1 is at the end of the file (fdEntry->fileSize)
+        // -2 will position to read last byte of the file
+        index = fdEntry->fileSize + 1 - index;
+    }
+
+    // # of sectors left to traverse through past the start cluster
+    int sectorsLeft = index / BYTES_PER_SECTOR;
+    int cluster = fdEntry->startCluster;
+    while (sectorsLeft-- > 0) {
+        cluster = getFatEntry(cluster, FAT1);
+        if (cluster == FAT_EOC) {
+            return FATERR_INVALID_FAT_CHAIN;
+        } else if (cluster == FAT_BAD) {
+            return FATERR_INVALID_SECTOR;
+        }
+    }
+    fdEntry->flags |= BUFFER_NOT_READ;
+    fdEntry->currentCluster = (uint16) cluster;
+    // bah, index should be uint32 in the first place!
+    fdEntry->fileIndex = (uint32) index;
+    return index;
 } // end fmsSeekFile
 
 

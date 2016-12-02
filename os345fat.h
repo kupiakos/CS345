@@ -16,8 +16,7 @@ typedef unsigned int uint32;
 #define BEG_DATA_SECTOR    33
 #define CLUSTERS_PER_DISK  SECTORS_PER_DISK-BEG_DATA_SECTOR
 
-#define BUFSIZE      512
-#define NFILES       32            // # of valid open files
+#define MAX_OPEN_FILES       32            // # of valid open files
 
 #define READ_ONLY 0x01
 #define HIDDEN    0x02
@@ -28,15 +27,17 @@ typedef unsigned int uint32;
 #define LONGNAME  (READ_ONLY | HIDDEN | SYSTEM | VOLUME)
 
 #define OPEN_READ        0                    // read only
-#define OPEN_WRITE    1                    // write only
-#define OPEN_APPEND    2                    // append
+#define OPEN_WRITE       1                    // write only
+#define OPEN_APPEND      2                    // append
 #define OPEN_RDWR        3                    // read/write
+#define IsValidOpenMode(x) (((x) >= OPEN_READ) && ((x) <= OPEN_RDWR))
 
 #define ENTRIES_PER_SECTOR 16
 #define FAT_EOC   4095
 #define FAT_BAD   4087
-#define C_2_S(c) (c+BEG_DATA_SECTOR-2)
-#define S_2_C(s) (s-BEG_DATA_SECTOR+2)
+#define C_2_S(c) ((c) + BEG_DATA_SECTOR - 2)
+#define S_2_C(s) ((s) - BEG_DATA_SECTOR + 2)
+#define IsValidFd(x) (((x) >= 0) && ((x) < MAX_OPEN_FILES))
 
 #define BigEndian(v) 1?v:((((v)>>8)&0x00ff))|((v)<<8)
 #define lLE(v) LITTLE?v:((BigEndian(v)<<16))|(BigEndian((v)>>16))
@@ -76,7 +77,7 @@ typedef struct {
 
 #define FILE_ALTERED       0x80
 #define BUFFER_ALTERED     0x40
-
+#define BUFFER_NOT_READ    0x20
 
 #pragma pack(push,1)						// BYTE align in memory (no padding)
 typedef struct {
@@ -129,7 +130,9 @@ typedef struct {
     uint8 name[8];            // File name
     uint8 extension[3];        // Extension
     uint8 attributes;            // Holds the attributes code
-    uint8 reserved[10];        // Reserved
+    // Custom added by kupiakos
+    uint16 position;           // Position in directory
+    uint8 reserved[8];        // Reserved
     FATTime time;                // Time of last write
     FATDate date;                // Date of last write
     uint16 startCluster;        // Pointer to the first cluster of the file.
@@ -147,35 +150,63 @@ typedef struct {
 //	Prototypes
 //
 void dumpRAMDisk(char *, int, int);
+
 void printDirectoryEntry(DirEntry *);
+
 void printFatEntries(unsigned char *, int, int);
+
 void setFatEntry(int FATindex, unsigned short FAT12ClusEntryVal, unsigned char *FAT);
+
 unsigned short getFatEntry(int FATindex, unsigned char *FATtable);
+
 int fmsMask(char *mask, char *name, char *ext);
+
 void setDirTimeDate(DirEntry *dir);
+
 int isValidFileName(char *fileName);
+
 int fmsChangeDir(char *);
+
 int fmsGetDirEntry(char *, DirEntry *);
+
 int fmsGetNextDirEntry(int *, char *, DirEntry *, int);
+
 int fmsCloseFile(int);
+
 int fmsDefineFile(char *, int);
+
 int fmsDeleteFile(char *);
+
 int fmsOpenFile(char *, int);
+
 int fmsReadFile(int, char *, int);
+
 int fmsSeekFile(int, int);
+
 int fmsWriteFile(int, char *, int);
+
 int fmsLoadFile(char *, void *, int);
+
 int fmsMount(char *, void *);
+
 int fmsReadSector(void *, int);
+
 int fmsWriteSector(void *, int);
+
 int fmsUnMount(char *, void *);
+
 void fmsError(int);
+
 int fmsDiskStats(DiskSize *dskSize);
 
 // ***************************************************************************************
 //	FMS Errors
 
-#define NUM_ERRORS   25
+// WTF WTF WTF: Why would anyone EVER define errors as virtually unreadable macros?
+// At least POSIX's errno.h errors are mostly readable, if terse.
+// NT got this part right IMO: errors should be immediately readable in code, even if verbose.
+
+#define NUM_ERRORS   28
 
 #define FATERR_INVALID_FILE_NAME       -50
 #define FATERR_INVALID_FILE_TYPE       -51
@@ -183,6 +214,8 @@ int fmsDiskStats(DiskSize *dskSize);
 #define FATERR_INVALID_SECTOR          -53
 #define FATERR_INVALID_FAT_CHAIN       -54
 #define FATERR_INVALID_DIRECTORY       -55
+// Added by kupiakos
+#define FATERR_INVALID_MODE            -56
 
 #define FATERR_FILE_ALREADY_DEFINED    -60
 #define FATERR_FILE_NOT_DEFINED        -61
@@ -204,16 +237,19 @@ int fmsDiskStats(DiskSize *dskSize);
 #define FATERR_FILE_DELETE_PROTECTED   -82
 #define FATERR_FILE_WRITE_PROTECTED    -83
 #define FATERR_READ_ONLY_FILE          -84
-#define FATERR_ACCESS_DENIED           -85
+#define FATERR_ILLEGAL_ACCESS          -85
 
-#define UNDEFINED    -1
+#define FATERR_SUCCESS       0
+#define FATERR_UNDEFINED    -1
 
+// Kept with the original numbers so I can map to the online docs more easily
 #define ERR50_MSG "Invalid File Name"
 #define ERR51_MSG "Invalid File Type"
 #define ERR52_MSG "Invalid File Descriptor"
 #define ERR53_MSG "Invalid Sector Number"
 #define ERR54_MSG "Invalid FAT Chain"
 #define ERR55_MSG "Invalid Directory"
+#define ERR56_MSG "Invalid Open Mode"
 
 #define ERR60_MSG "File Already Defined"
 #define ERR61_MSG "File Not Defined"
@@ -237,6 +273,7 @@ int fmsDiskStats(DiskSize *dskSize);
 #define ERR84_MSG "Read Only File"
 #define ERR85_MSG "Illegal Access"
 
+#define SUCCESS_MSG   "Success"
 #define UNDEFINED_MSG "Undefined Error"
 
 #endif // __os345fat_h__

@@ -46,6 +46,7 @@ FMSERROR FMSErrors[NUM_ERRORS] = {
         {FATERR_INVALID_SECTOR,          ERR53_MSG},  // Invalid Sector Number
         {FATERR_INVALID_FAT_CHAIN,       ERR54_MSG},  // Invalid FAT Chain
         {FATERR_INVALID_DIRECTORY,       ERR55_MSG},  // Invalid Directory
+        {FATERR_INVALID_MODE,            ERR56_MSG},  // Invalid open mode
 
         {FATERR_FILE_ALREADY_DEFINED,    ERR60_MSG},  // File Already Defined
         {FATERR_FILE_NOT_DEFINED,        ERR61_MSG},  // File Not Defined
@@ -67,7 +68,10 @@ FMSERROR FMSErrors[NUM_ERRORS] = {
         {FATERR_FILE_DELETE_PROTECTED,   ERR82_MSG},  // File Delete Protected
         {FATERR_FILE_WRITE_PROTECTED,    ERR83_MSG},  // File Write Protected
         {FATERR_READ_ONLY_FILE,          ERR84_MSG},  // Read Only File
-        {FATERR_ACCESS_DENIED,           ERR85_MSG}   // Illegal Access
+        {FATERR_ILLEGAL_ACCESS,          ERR85_MSG},   // Illegal Access
+
+        {FATERR_UNDEFINED,               UNDEFINED_MSG},
+        {FATERR_SUCCESS,                 SUCCESS_MSG},
 };
 
 int sectorReads;
@@ -550,7 +554,7 @@ int P6_fileSlots(int argc, char *argv[])    // list open file slots
     FDEntry *fdEntry;
 
     printf("\nSlot  Name    Ext  Atr  Size  Strt  Curr  cDir  cPID  Mode  Flag  Indx");
-    for (fd = 0; fd < NFILES; fd++) {
+    for (fd = 0; fd < MAX_OPEN_FILES; fd++) {
         fdEntry = &OFTable[fd];
         if (fdEntry->name[0] == 0) continue;      // open slot
         printf("\n %2u   ", fd);
@@ -970,7 +974,7 @@ int fmsTests(int test, bool debug) {
             for (i = 0; i < numFiles; i++) {
                 sprintf(buf, "file%d.txt", i);
                 if ((tFID[i] = fmsOpenFile(buf, OPEN_RDWR)) < 0) {
-                    if (i == NFILES) break;
+                    if (i == MAX_OPEN_FILES) break;
                     FERROR("\nFailed fmsOpenFile(\"%s\") with R/W", buf, tFID[i]);
                 }
             }
@@ -993,7 +997,7 @@ int fmsTests(int test, bool debug) {
             printf("\n  %s", rBuf);
 
             // close files
-            for (i = 0; i < NFILES; i++) {
+            for (i = 0; i < MAX_OPEN_FILES; i++) {
                 if (debug) printf("\n  fmsCloseFile(%d)", tFID[i]);
                 try(fmsCloseFile(tFID[i]));
             }
@@ -1003,7 +1007,7 @@ int fmsTests(int test, bool debug) {
         case 3: {
             // close/open word file and append to test2 file
             // then print test2 file
-            int test2 = numFiles < NFILES ? numFiles - 1 : NFILES - 1;
+            int test2 = numFiles < MAX_OPEN_FILES ? numFiles - 1 : MAX_OPEN_FILES - 1;
             printf("\nRunning Test 3...");
             sprintf(buf2, "file%d.txt", test2);
             for (i = 0; i < numWords; i++) {
@@ -1038,7 +1042,7 @@ int fmsTests(int test, bool debug) {
         }
 
         case 4: {
-            int test3 = numFiles < NFILES ? numFiles - 2 : NFILES - 2;
+            int test3 = numFiles < MAX_OPEN_FILES ? numFiles - 2 : MAX_OPEN_FILES - 2;
             int t3FID;
             int fileSize = 10 * 512;
             int index[numWords] = {510, 20, 5120, 1024, 0, 4095, 4000, 5000,
@@ -1444,13 +1448,13 @@ void setDirTimeDate(DirEntry *dir) {
 
     time(&a);
     b = localtime(&a);
-    dir->date.year = b->tm_year + 1900 - 1980;
-    dir->date.month = b->tm_mon;
-    dir->date.day = b->tm_mday;
+    dir->date.year = (uint16) (b->tm_year + 1900 - 1980);
+    dir->date.month = (uint16) b->tm_mon;
+    dir->date.day = (uint16) b->tm_mday;
 
-    dir->time.hour = b->tm_hour;
-    dir->time.min = b->tm_min;
-    dir->time.sec = b->tm_sec;
+    dir->time.hour = (uint16) b->tm_hour;
+    dir->time.min = (uint16) b->tm_min;
+    dir->time.sec = (uint16) b->tm_sec;
     return;
 } // end setDirTimeDate
 
@@ -1494,7 +1498,7 @@ int isValidFileName(char *fileName) {
     // check for invalid characters
     if (strpbrk(fileName, "\"/:*<>|?")) return 0;
     // check for double period
-    if (s = strchr(fileName, '.')) {
+    if ((s = strchr(fileName, '.'))) {
         if (strchr(s + 1, '.')) return 0;            // more than 1 '.'
         if (strlen(s + 1) > 3) return 0;            // too long of extension
         if ((strlen(fileName) - strlen(s)) <= 8) return 1;
