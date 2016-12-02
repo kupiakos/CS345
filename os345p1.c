@@ -115,17 +115,12 @@ static const char *parse_cmdline(
                         arg_size = 0;
                         break;
                     default:
-                        if (isalnum(c)) {
-                            if (argc >= MAX_ARGS) {
-                                goto argc_error;
-                            }
-                            arg_size = 1;
-                            arg_buf[0] = c;
-                            state = UnquotedArg;
-                        } else if (!isspace(c)) {
-                            // The velociraptors have come
-                            goto token_error;
+                        if (argc >= MAX_ARGS) {
+                            goto argc_error;
                         }
+                        arg_size = 1;
+                        arg_buf[0] = c;
+                        state = UnquotedArg;
                 }
                 break;
             case QuotedArg:
@@ -168,12 +163,10 @@ static const char *parse_cmdline(
                         }
                         break;
                 }
-                if (isalnum(c)) {
-                    arg_buf[arg_size++] = c;
-                } else if (isspace(c) || c == '#' || c == '&' || c == '\x00') {
+                if (isspace(c) || c == '#' || c == '&' || c == '\x00') {
                     argv[argc++] = create_arg(arg_buf, arg_size);
                 } else {
-                    goto token_error;
+                    arg_buf[arg_size++] = c;
                 }
                 break;
             case Comment:

@@ -191,7 +191,7 @@ int fmsOpenFile(char *fileName, int rwMode) {
     // Find an available file descriptor (and ensure the file is not opened)
     // Go backwards so we can check every file but also get the lowest available fd
     int newFd = -1;
-    for (int checkFd = MAX_OPEN_FILES - 1; checkFd >= 0; ++checkFd) {
+    for (int checkFd = MAX_OPEN_FILES - 1; checkFd >= 0; --checkFd) {
         FDEntry *checkEntry = &OFTable[checkFd];
 
         if (checkEntry->name[0] == 0) {
@@ -207,8 +207,8 @@ int fmsOpenFile(char *fileName, int rwMode) {
 
     // Copy data from dirEntry into fdEntry
     // (the descriptor is now "used" as the name is set)
-    memccpy(fdEntry->name, dirEntry.name, 8, 1);
-    memccpy(fdEntry->extension, dirEntry.extension, 3, 1);
+    memcpy(fdEntry->name, dirEntry.name, 8);
+    memcpy(fdEntry->extension, dirEntry.extension, 3);
     fdEntry->attributes = dirEntry.attributes;
     // TODO: Verify
     fdEntry->directoryCluster = (uint16) CDIR;

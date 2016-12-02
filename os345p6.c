@@ -115,21 +115,39 @@ int P6_project6(int argc, char *argv[]) {
 // cd <fileName>
 int P6_cd(int argc, char *argv[])            // change directory
 {
-    int error;
+    int error = FATERR_SUCCESS;
 
     if (argc < 2) {
         printf("\n  CD <fileName>");
-        return 0;
+        return FATERR_SUCCESS;
     }
 
     if (!diskMounted) {
         fmsError(FATERR_DISK_NOT_MOUNTED);
-        return 0;
+        return FATERR_SUCCESS;
     }
-    if (!(error = fmsChangeDir(argv[1]))) return 0;
-    if (error == FATERR_END_OF_DIRECTORY) error = FATERR_DIRECTORY_NOT_FOUND;
-    fmsError(error);
-    return 0;
+    if (!argv[1]) {
+        return FATERR_UNDEFINED;
+    }
+
+    size_t len = strlen(argv[1]);
+    if (len == 0) {
+        return FATERR_INVALID_FILE_NAME;
+    }
+
+    char *token = strtok(argv[1], FILE_SEP);
+    while (token) {
+        if ((error = fmsChangeDir(token)) != FATERR_SUCCESS) {
+            if (error == FATERR_END_OF_DIRECTORY)
+                error = FATERR_DIRECTORY_NOT_FOUND;
+            break;
+        }
+        token = strtok(NULL, FILE_SEP);
+    }
+
+    if (error != FATERR_SUCCESS)
+        fmsError(error);
+    return error;
 } // end P6_cd
 
 
@@ -143,18 +161,25 @@ int P6_dir(int argc, char *argv[])        // list directory
     DirEntry dirEntry;
     char mask[20];
     int error = 0;
+    int dir = CDIR;
 
     if (!diskMounted) {
         fmsError(FATERR_DISK_NOT_MOUNTED);
         return 0;
     }
-    if (argc < 2) strcpy(mask, "*.*");
-    else strcpy(mask, argv[1]);
+    if (argc < 2) {
+        strcpy(mask, "*.*");
+    } else {
+        if ((error = fmsGetPathDir(argv[1], dir, &dir, mask)) != FATERR_SUCCESS) {
+            fmsError(error);
+            return error;
+        }
+    }
 
     //dumpRAMDisk("Root Directory", 19*512, 19*512+256);
     printf("\nName:ext                time      date    cluster  size");
     while (1) {
-        error = fmsGetNextDirEntry(&index, mask, &dirEntry, CDIR);
+        error = fmsGetNextDirEntry(&index, mask, &dirEntry, dir);
         if (error) {
             if (error != FATERR_END_OF_DIRECTORY) fmsError(error);
             break;
@@ -265,7 +290,7 @@ int P6_mount(int argc, char *argv[])        // mount RAM disk
 
     assert("64-bit" && (sizeof(DirEntry) == 32));
 
-    if (argc < 2) strcat(temp, "c:/lcc/projects/disk4");
+    if (argc < 2) strcat(temp, "disk4");
     else strcat(temp, argv[1]);
     printf("\nMount Disk \"%s\"", temp);
 
@@ -1268,6 +1293,10 @@ int P6_open(int argc, char *argv[])        // open file
     int error, mode;
     char *omode[] = {"read", "write", "append", "r/w"};
 
+    if (argc < 2) {
+        printf("\nUsage:\nopen <file> [read|write|append|r/w]\n");
+        return 0;
+    }
     if (argc < 3) mode = OPEN_READ;
     else mode = INTEGER(argv[2]);
     mode %= 4;
@@ -1304,7 +1333,12 @@ int P6_read(int argc, char *argv[])        // read file
 
     if (argc < 2) nBytes = 1;
     else nBytes = INTEGER(argv[1]);
-    nBytes %= 512;
+    if (nBytes < 1) {
+        nBytes = 1;
+    }
+    if (nBytes > 512) {
+        nBytes = 512;
+    }
 
     if ((error = fmsReadFile(lastFD, buffer, nBytes)) < 0) {
         fmsError(error);
@@ -1605,7 +1639,7 @@ int fmsGetNextDirEntry(int *dirNum, char *mask, DirEntry *dirEntry, int dir)
         }
 
         // read sector into directory buffer
-        if (error = fmsReadSector(buffer, dirSector)) return error;
+        if ((error = fmsReadSector(buffer, dirSector))) return error;
 
         // find next matching directory entry
         while (1) {    // read directory entry
@@ -1615,7 +1649,8 @@ int fmsGetNextDirEntry(int *dirNum, char *mask, DirEntry *dirEntry, int dir)
             (*dirNum)++;                                // prepare for next read
             if (dirEntry->name[0] == 0xe5);            // Deleted entry, go on...
             else if (dirEntry->attributes == LONGNAME);
-            else if (fmsMask(mask, dirEntry->name, dirEntry->extension)) return 0;   // return if valid
+            else if (fmsMask(mask, (char *) dirEntry->name, (char *) dirEntry->extension))
+                return 0;   // return if valid
             // break if sector boundary
             if ((*dirNum % ENTRIES_PER_SECTOR) == 0) break;
         }
@@ -1625,7 +1660,72 @@ int fmsGetNextDirEntry(int *dirNum, char *mask, DirEntry *dirEntry, int dir)
     return 0;
 } // end fmsGetNextDirEntry
 
+// Get the containing directory (as a cluster #) of a path.
+// If the path starts with \, start from the root.
+// Otherwise, return startDir the path only contains one non-root component.
+// If tail is not NULL, it will be set to the last token available, or "" if there is none.
+// Example: boot\test\thing would result in returning the cluster for boot\test.
+//          thing would return the cluster for CDIR.
+//          \foo would return 0, the cluster for the root directory
+int fmsGetPathDir(const char *path, int startDir, int *resultDir, char *tail) {
+    // This is valid C99!
+    char tokenBuf[strlen(path) + 1];
+    if (path[0] == 0) {
+        return CDIR;
+    }
+    // strtok modifies its input
+    strcpy(tokenBuf, path);
+    int error = FATERR_SUCCESS;
+    int dir = CDIR;
+    for (int i = 0; i < strlen(FILE_SEP); ++i) {
+        if (FILE_SEP[i] == tokenBuf[0]) {
+            // Start from the root dir
+            dir = 0;
+            break;
+        }
+    }
 
+    char *token = strtok(tokenBuf, FILE_SEP);
+    char *prev = NULL;
+    while (token) {
+        prev = token;
+        token = strtok(NULL, FILE_SEP);
+        if (token) {
+            int index = 0;
+            DirEntry dirEntry;
+            // the path is split at least into two parts
+            if ((error = fmsGetNextDirEntry(&index, prev, &dirEntry, dir)) != FATERR_SUCCESS) {
+                if (error == FATERR_END_OF_DIRECTORY) {
+                    error = FATERR_DIRECTORY_NOT_FOUND;
+                }
+                break;
+            }
+            if (!(dirEntry.attributes & DIRECTORY)) {
+                error = FATERR_DIRECTORY_NOT_FOUND;
+                break;
+            }
+            dir = dirEntry.startCluster;
+        } else {
+            // prev holds the last token
+            if (tail) {
+                strcpy(tail, prev);
+            }
+        }
+    }
+    if (error == FATERR_SUCCESS) {
+        // No tokens were found
+        if (!prev) {
+            if (tail) {
+                // Blank out string
+                tail[0] = '\0';
+            }
+        }
+        if (resultDir) {
+            *resultDir = dir;
+        }
+    }
+    return error;
+}
 
 // ***************************************************************************************
 // ***************************************************************************************
@@ -1637,7 +1737,8 @@ int fmsChangeDir(char *dirName)
 //	Verify that dirname is a valid directory name in the current directory.
 //	Return 0 for success, otherwise, return the error number.
 {
-    int i, error;
+    int error;
+    size_t i;
     DirEntry dirEntry;
 
     // need to allow for . and ..
@@ -1815,7 +1916,8 @@ unsigned short getFatEntry(int FATindex, unsigned char *FATtable) {
         FATEntryCode &= 0x0fff;                // Extract the low-order 12 bits
     }
     return FATEntryCode;
-} // end GetFatEntry
+}
+// end GetFatEntry
 
 // ***************************************************************************************
 // ***************************************************************************************

@@ -42,6 +42,8 @@ typedef unsigned int uint32;
 #define BigEndian(v) 1?v:((((v)>>8)&0x00ff))|((v)<<8)
 #define lLE(v) LITTLE?v:((BigEndian(v)<<16))|(BigEndian((v)>>16))
 
+#define FILE_SEP ("\\/")
+
 typedef struct {
     uint16 free;                // # of sectors free
     uint16 used;                // # of sectors used
@@ -170,6 +172,8 @@ int fmsChangeDir(char *);
 int fmsGetDirEntry(char *, DirEntry *);
 
 int fmsGetNextDirEntry(int *, char *, DirEntry *, int);
+
+int fmsGetPathDir(const char *path, int startDir, int *resultDir, char *tail);
 
 int fmsCloseFile(int);
 
