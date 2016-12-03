@@ -41,6 +41,8 @@ int fmsReadFile(int, char *, int);
 
 int fmsSeekFile(int, int);
 
+int fmsFlushFile(int);
+
 int fmsWriteFile(int, char *, int);
 
 // ***********************************************************************
@@ -103,7 +105,7 @@ int fmsCloseFile(int fileDescriptor) {
     FDEntry *fdEntry = &OFTable[fileDescriptor];
     if (fdEntry->name[0] == 0) return FATERR_FILE_NOT_OPEN;
 
-    // TODO: Flush if buffer altered (really should just have flush function)
+    fmsFlushFile(fileDescriptor);
 
     fdEntry->name[0] = 0;
 
@@ -294,13 +296,7 @@ int fmsReadFile(int fileDescriptor, char *buffer, int nBytes) {
                 nextCluster = getFatEntry(fdEntry->currentCluster, FAT1);
                 if (nextCluster == FAT_EOC) return numBytesRead;
             }
-            if (fdEntry->flags & BUFFER_ALTERED) {
-                // isn't it possible for sector size != cluster size?
-                if ((error = fmsWriteSector(fdEntry->buffer,
-                                            C_2_S(fdEntry->currentCluster))))
-                    return error;
-                fdEntry->flags &= ~BUFFER_ALTERED;
-            }
+            fmsFlushFile(fileDescriptor);
             fdEntry->flags |= BUFFER_NOT_READ;
             fdEntry->currentCluster = nextCluster;
         }
@@ -371,14 +367,7 @@ int fmsWriteFile(int fileDescriptor, char *buffer, int nBytes) {
                     startCluster = fdEntry->currentCluster;
                     nextCluster = 0;
                 }
-                // Write the current sector
-                if (fdEntry->flags & BUFFER_ALTERED) {
-                    if ((error = fmsWriteSector(fdEntry->buffer,
-                                                C_2_S(fdEntry->currentCluster)))) {
-                        return error;
-                    }
-                    fdEntry->flags &= ~BUFFER_ALTERED;
-                }
+                fmsFlushFile(fileDescriptor);
             }
             if (!nextCluster) {
                 // We need to find another sector to write to
@@ -442,6 +431,7 @@ int fmsSeekFile(int fileDescriptor, int index) {
     if (!IsValidFd(fileDescriptor)) {
         return FATERR_INVALID_DESCRIPTOR;
     }
+    int error;
     FDEntry *fdEntry = &OFTable[fileDescriptor];
     if (fdEntry->name[0] == 0) return FATERR_FILE_NOT_OPEN;
 
@@ -472,7 +462,7 @@ int fmsSeekFile(int fileDescriptor, int index) {
     // # of sectors left to traverse through past the start cluster
     int sectorsLeft = index / BYTES_PER_SECTOR;
     int cluster = fdEntry->startCluster;
-    while (sectorsLeft-- > 0) {
+    while (sectorsLeft--) {
         cluster = getFatEntry(cluster, FAT1);
         if (cluster == FAT_EOC) {
             return FATERR_INVALID_FAT_CHAIN;
@@ -480,6 +470,9 @@ int fmsSeekFile(int fileDescriptor, int index) {
             return FATERR_INVALID_SECTOR;
         }
     }
+    error = fmsFlushFile(fileDescriptor);
+    if (error) return error;
+
     fdEntry->flags |= BUFFER_NOT_READ;
     fdEntry->currentCluster = (uint16) cluster;
     // bah, index should be uint32 in the first place!
@@ -487,3 +480,31 @@ int fmsSeekFile(int fileDescriptor, int index) {
     return index;
 } // end fmsSeekFile
 
+
+// Write the current buffered data to disk
+int fmsFlushFile(int fileDescriptor) {
+    if (!IsValidFd(fileDescriptor)) {
+        return FATERR_INVALID_DESCRIPTOR;
+    }
+    int error;
+    FDEntry *fdEntry;
+
+    fdEntry = &OFTable[fileDescriptor];
+    if (fdEntry->name[0] == 0)
+        return FATERR_FILE_NOT_OPEN;
+
+    if (!(fdEntry->flags & BUFFER_ALTERED))
+        return FATERR_SUCCESS;
+
+    if (fdEntry->mode == OPEN_READ) {
+        // should really never happen
+        return FATERR_FILE_WRITE_PROTECTED;
+    }
+    if ((error = fmsWriteSector(fdEntry->buffer,
+                                C_2_S(fdEntry->currentCluster)))) {
+        return error;
+    }
+    fdEntry->flags &= ~BUFFER_ALTERED;
+
+    return FATERR_SUCCESS;
+}
