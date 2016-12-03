@@ -167,9 +167,9 @@ int isValidFileName(char *fileName);
 
 int fmsChangeDir(char *);
 
-int fmsGetDirEntry(char *, DirEntry *);
+int fmsGetDirEntry(char *, DirEntry *, int dir);
 
-int fmsGetNextDirEntry(int *, char *, DirEntry *, int);
+int fmsGetNextFile(int *, char *, DirEntry *, int);
 
 int fmsGetPathDir(const char *path, int startDir, int *resultDir, char *tail);
 

@@ -253,11 +253,11 @@ int lc3Task(int argc, char *argv[]) {
                         //       R2 = DirEntry* dirEntry
                         //       R3 = int cDir
                         // OUT:  R0 = 0-success, otherwise error
-                        if (LC3_DEBUG & 0x01) printf(TRAP_MSG, oldpc, "fmsGetNextDirEntry");
-                        LC3_REGS[0] = fmsGetNextDirEntry((int *) getMemAdr(LC3_REGS[0], 1),       // int *dirNum
-                                                         (char *) getMemAdr(LC3_REGS[1], 0),      // char* mask
-                                                         (DirEntry *) getMemAdr(LC3_REGS[2], 1),  // DirEntry* dirEntry
-                                                         (short int) LC3_REGS[3]);               // int cDir
+                        if (LC3_DEBUG & 0x01) printf(TRAP_MSG, oldpc, "fmsGetNextFile");
+                        LC3_REGS[0] = fmsGetNextFile((int *) getMemAdr(LC3_REGS[0], 1),       // int *dirNum
+                                                     (char *) getMemAdr(LC3_REGS[1], 0),      // char* mask
+                                                     (DirEntry *) getMemAdr(LC3_REGS[2], 1),  // DirEntry* dirEntry
+                                                     (short int) LC3_REGS[3]);               // int cDir
                         SWAP
                         break;
                     }

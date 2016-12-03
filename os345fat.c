@@ -46,9 +46,9 @@ int fmsWriteFile(int, char *, int);
 // ***********************************************************************
 //	Support functions available in os345p6.c
 //
-extern int fmsGetDirEntry(char *fileName, DirEntry *dirEntry);
+extern int fmsGetDirEntry(char *fileName, DirEntry *dirEntry, int dir);
 
-extern int fmsGetNextDirEntry(int *dirNum, char *mask, DirEntry *dirEntry, int dir);
+extern int fmsGetNextFile(int *dirNum, char *mask, DirEntry *dirEntry, int dir);
 
 extern int fmsMount(char *fileName, void *ramDisk);
 
@@ -181,7 +181,7 @@ int fmsOpenFile(char *fileName, int rwMode) {
 
     // Get the associated directory entry
     DirEntry dirEntry;
-    if ((err = fmsGetDirEntry(fileName, &dirEntry)) != 0) {
+    if ((err = fmsGetDirEntry(fileName, &dirEntry, CDIR)) != 0) {
         return err;
     }
     if (dirEntry.name[0] == 0 || dirEntry.name[0] == ' ') {
@@ -222,7 +222,7 @@ int fmsOpenFile(char *fileName, int rwMode) {
     memset(fdEntry->buffer, 0, sizeof(fdEntry->buffer));
 
     if (rwMode == OPEN_WRITE || rwMode == OPEN_RDWR) {
-        // TODO: Change modification date
+
     }
     if (rwMode == OPEN_WRITE) {
         // TODO: Clear file on open with write
@@ -260,7 +260,7 @@ int fmsReadFile(int fileDescriptor, char *buffer, int nBytes) {
     fdEntry = &OFTable[fileDescriptor];
     if (fdEntry->name[0] == 0)
         return FATERR_FILE_NOT_OPEN;
-    if ((fdEntry->mode == 1) || (fdEntry->mode == 2))
+    if ((fdEntry->mode == OPEN_WRITE) || (fdEntry->mode == OPEN_APPEND))
         return FATERR_ILLEGAL_ACCESS;
     while (nBytes > 0) {
         // wtf: wouldn't it make more sense to just return 0 rather than an "error"?
@@ -304,6 +304,35 @@ int fmsReadFile(int fileDescriptor, char *buffer, int nBytes) {
     return numBytesRead;
 } // end fmsReadFile
 
+
+
+// ***********************************************************************
+// ***********************************************************************
+// This function writes nBytes bytes to the open file specified by fileDescriptor from
+// memory pointed to by buffer.
+// The fileDescriptor was returned by fmsOpenFile and is an index into the open file table.
+// Writing is always "overwriting" not "inserting" in the file and always writes forward
+// from the current file pointer position.
+// Return the number of bytes successfully written; otherwise, return the error number.
+//
+int fmsWriteFile(int fileDescriptor, char *buffer, int nBytes) {
+    if (!IsValidFd(fileDescriptor)) {
+        return FATERR_INVALID_DESCRIPTOR;
+    }
+    int error;
+    uint16 nextCluster;
+    FDEntry *fdEntry;
+    int numBytesWritten = 0;
+    unsigned int bufferIndex;
+    uint32 bytesLeft;
+    fdEntry = &OFTable[fileDescriptor];
+    if (fdEntry->name[0] == 0)
+        return FATERR_FILE_NOT_OPEN;
+    if ((fdEntry->mode == OPEN_READ) || (fdEntry->mode == OPEN_RDWR))
+        return FATERR_ILLEGAL_ACCESS;
+
+    return FATERR_FILE_NOT_OPEN;
+} // end fmsWriteFile
 
 
 
@@ -363,21 +392,3 @@ int fmsSeekFile(int fileDescriptor, int index) {
     fdEntry->fileIndex = (uint32) index;
     return index;
 } // end fmsSeekFile
-
-
-
-// ***********************************************************************
-// ***********************************************************************
-// This function writes nBytes bytes to the open file specified by fileDescriptor from
-// memory pointed to by buffer.
-// The fileDescriptor was returned by fmsOpenFile and is an index into the open file table.
-// Writing is always "overwriting" not "inserting" in the file and always writes forward
-// from the current file pointer position.
-// Return the number of bytes successfully written; otherwise, return the error number.
-//
-int fmsWriteFile(int fileDescriptor, char *buffer, int nBytes) {
-    // ?? add code here
-    printf("\nfmsWriteFile Not Implemented");
-
-    return FATERR_FILE_NOT_OPEN;
-} // end fmsWriteFile

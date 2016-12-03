@@ -179,7 +179,7 @@ int P6_dir(int argc, char *argv[])        // list directory
     //dumpRAMDisk("Root Directory", 19*512, 19*512+256);
     printf("\nName:ext                time      date    cluster  size");
     while (1) {
-        error = fmsGetNextDirEntry(&index, mask, &dirEntry, dir);
+        error = fmsGetNextFile(&index, mask, &dirEntry, dir);
         if (error) {
             if (error != FATERR_END_OF_DIRECTORY) fmsError(error);
             break;
@@ -829,15 +829,15 @@ void checkDirectory(char *dirName, unsigned char fat[], int dir) {
     //	check for dot/dotdot
     if (dir) {
         index = 0;
-        if (fmsGetNextDirEntry(&index, ".", &dirEntry, dir) < 0)
+        if (fmsGetNextFile(&index, ".", &dirEntry, dir) < 0)
             printf("\n  \".\" missing from \"%s\" directory", dirName);
         index = 0;
-        if (fmsGetNextDirEntry(&index, "..", &dirEntry, dir) < 0)
+        if (fmsGetNextFile(&index, "..", &dirEntry, dir) < 0)
             printf("\n  \"..\" missing from \"%s\" directory", dirName);
     }
     index = 0;
     while (1) {
-        if (fmsGetNextDirEntry(&index, "*.*", &dirEntry, dir)) break;
+        if (fmsGetNextFile(&index, "*.*", &dirEntry, dir)) break;
         // process file name
         getFileName(fileName, &dirEntry);
         if (dirEntry.attributes & (VOLUME || DIRECTORY))
@@ -1220,7 +1220,7 @@ int fmsTests(int test, bool debug) {
 //		        FAT-32 sectors: 0
 //		c:/lcc/projects/disk4:\>>
 //
-//	4. List root director (validates fmsGetNextDirEntry for root):
+//	4. List root director (validates fmsGetNextFile for root):
 //
 //		c:/lcc/projects/disk4:\>>dir
 //		Name:ext                time      date    cluster  size
@@ -1582,7 +1582,7 @@ int fmsMask(char *mask, char *name, char *ext) {
 
 // ***************************************************************************************
 // ***************************************************************************************
-int fmsGetDirEntry(char *fileName, DirEntry *dirEntry)
+int fmsGetDirEntry(char *fileName, DirEntry *dirEntry, int dir)
 // This function returns the directory entry from the current directory as
 //    specified by fileName.
 // Return 0 for success; otherwise, return an error number.
@@ -1591,7 +1591,7 @@ int fmsGetDirEntry(char *fileName, DirEntry *dirEntry)
 {
     int error, index = 0;
     //if (isValidFileName(fileName) < 1) return FATERR_INVALID_FILE_NAME;
-    error = fmsGetNextDirEntry(&index, fileName, dirEntry, CDIR);
+    error = fmsGetNextFile(&index, fileName, dirEntry, dir);
     return (error ? ((error == FATERR_END_OF_DIRECTORY) ? FATERR_FILE_NOT_DEFINED : error) : 0);
 } // end fmsGetDirEntry
 
@@ -1599,7 +1599,7 @@ int fmsGetDirEntry(char *fileName, DirEntry *dirEntry)
 
 // ***************************************************************************************
 // ***************************************************************************************
-int fmsGetNextDirEntry(int *dirNum, char *mask, DirEntry *dirEntry, int dir)
+int fmsGetNextFile(int *dirNum, char *mask, DirEntry *dirEntry, int dir)
 //	Called by dir or ls command.
 // This function returns the next directory entry of the current directory.
 //	The dirNum parameter is set to 0 for the first entry and is subsequently
@@ -1658,7 +1658,8 @@ int fmsGetNextDirEntry(int *dirNum, char *mask, DirEntry *dirEntry, int dir)
         loop = 1;
     }
     return 0;
-} // end fmsGetNextDirEntry
+} // end fmsGetNextFile
+
 
 // Get the containing directory (as a cluster #) of a path.
 // If the path starts with \, start from the root.
@@ -1694,7 +1695,7 @@ int fmsGetPathDir(const char *path, int startDir, int *resultDir, char *tail) {
             int index = 0;
             DirEntry dirEntry;
             // the path is split at least into two parts
-            if ((error = fmsGetNextDirEntry(&index, prev, &dirEntry, dir)) != FATERR_SUCCESS) {
+            if ((error = fmsGetNextFile(&index, prev, &dirEntry, dir)) != FATERR_SUCCESS) {
                 if (error == FATERR_END_OF_DIRECTORY) {
                     error = FATERR_DIRECTORY_NOT_FOUND;
                 }
@@ -1743,7 +1744,7 @@ int fmsChangeDir(char *dirName)
 
     // need to allow for . and ..
     //if (isValidFileName(dirName) < 1) return FATERR_INVALID_FILE_NAME;
-    if ((error = fmsGetDirEntry(dirName, &dirEntry))) return error;
+    if ((error = fmsGetDirEntry(dirName, &dirEntry, CDIR))) return error;
     if (dirEntry.attributes != DIRECTORY) return FATERR_INVALID_DIRECTORY;
     CDIR = dirEntry.startCluster;
 
@@ -1771,7 +1772,7 @@ void sizeDisk(DiskSize *dskSize, char *mask, int dir) {
     DirEntry dirEntry;
 
     while (1) {
-        if (fmsGetNextDirEntry(&index, mask, &dirEntry, dir)) break;
+        if (fmsGetNextFile(&index, mask, &dirEntry, dir)) break;
         if (dirEntry.name[0] == '.') continue;
         dskSize->used += ((dirEntry.fileSize + BYTES_PER_SECTOR) / BYTES_PER_SECTOR);             // # of sectors used
         if ((dirEntry.attributes == DIRECTORY) && (dirEntry.name[0] != '.')) {
