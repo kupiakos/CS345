@@ -132,9 +132,7 @@ typedef struct {
     uint8 name[8];            // File name
     uint8 extension[3];        // Extension
     uint8 attributes;            // Holds the attributes code
-    // Custom added by kupiakos
-    uint16 position;           // Position in directory
-    uint8 reserved[8];        // Reserved
+    uint8 reserved[10];        // Reserved
     FATTime time;                // Time of last write
     FATDate date;                // Date of last write
     uint16 startCluster;        // Pointer to the first cluster of the file.
