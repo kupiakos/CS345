@@ -398,7 +398,8 @@ int fmsWriteFile(int fileDescriptor, const char *data, int nBytes) {
                     }
                 }
             }
-            fdEntry->flags |= BUFFER_NOT_READ;
+            if (fdEntry->mode == OPEN_RDWR)
+                fdEntry->flags |= BUFFER_NOT_READ;
             fdEntry->currentCluster = (uint16) nextCluster;
         }
         if (fdEntry->flags & BUFFER_NOT_READ) {
