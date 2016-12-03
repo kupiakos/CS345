@@ -1855,7 +1855,7 @@ int clearFATChain(int dirCluster, unsigned char *FAT) {
             return FATERR_INVALID_FAT_CHAIN;
         dirCluster = nextCluster;
         nextCluster = getFatEntry(dirCluster, FAT);
-        setFatEntry(dirCluster, 0, FAT_UNUSED);
+        setFatEntry(dirCluster, FAT_UNUSED, FAT);
     } while (nextCluster != FAT_EOC);
     return FATERR_SUCCESS;
 }
@@ -1873,7 +1873,7 @@ int fmsReadDirEntry(int dir, int entryNum, DirEntry *dirEntry) {
     }
 
     int dirIndex = entryNum % ENTRIES_PER_SECTOR;
-    memcpy(dirEntry, (DirEntry *) buffer + entryNum, sizeof(*dirEntry));
+    memcpy(dirEntry, (DirEntry *) buffer + dirIndex, sizeof(*dirEntry));
     return FATERR_SUCCESS;
 }
 
@@ -1890,7 +1890,7 @@ int fmsWriteDirEntry(int dir, int entryNum, const DirEntry *dirEntry) {
     }
 
     int dirIndex = entryNum % ENTRIES_PER_SECTOR;
-    memcpy((DirEntry *) buffer + entryNum, dirEntry, sizeof(*dirEntry));
+    memcpy((DirEntry *) buffer + dirIndex, dirEntry, sizeof(*dirEntry));
 
     if ((error = fmsWriteSector(buffer, dirSector))) {
         return error;
@@ -1955,14 +1955,14 @@ int nextFreeCluster(int startCluster, int *outCluster, unsigned char *FAT) {
     unsigned short entry;
     do {
         entry = getFatEntry(cluster, FAT);
-        if (++cluster * 3 / 2 >= sizeof(NUM_FAT_SECTORS * BYTES_PER_SECTOR)) {
+        if (++cluster * 3 / 2 >= NUM_FAT_SECTORS * BYTES_PER_SECTOR) {
             cluster = 2;
         }
         if (cluster == startCluster) {
             return FATERR_FILE_SPACE_FULL;
         }
     } while (entry);
-    *outCluster = entry;
+    *outCluster = cluster;
     return FATERR_SUCCESS;
 }
 

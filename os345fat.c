@@ -224,6 +224,7 @@ int fmsOpenFile(char *fileName, int rwMode) {
             clearFATChain(dirEntry.startCluster, FAT1);
             clearFATChain(dirEntry.startCluster, FAT2);
             dirEntry.startCluster = 0;
+            dirEntry.fileSize = 0;
         }
         // update the modify time/date
         setDirTimeDate(&dirEntry);
