@@ -1953,15 +1953,16 @@ int fmsWriteSector(void *buffer, int sectorNumber)
 int nextFreeCluster(int startCluster, int *outCluster, unsigned char *FAT) {
     int cluster = startCluster;
     unsigned short entry;
-    do {
+    while (1) {
         entry = getFatEntry(cluster, FAT);
+        if (!entry) break;
         if (++cluster * 3 / 2 >= NUM_FAT_SECTORS * BYTES_PER_SECTOR) {
             cluster = 2;
         }
         if (cluster == startCluster) {
             return FATERR_FILE_SPACE_FULL;
         }
-    } while (entry);
+    }
     *outCluster = cluster;
     return FATERR_SUCCESS;
 }
