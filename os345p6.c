@@ -1334,11 +1334,10 @@ int P6_open(int argc, char *argv[])        // open file
 // 	>>read {<# of bytes>}
 //
 //		where <# of bytes> = # of bytes to read from file
-//									(default = 1, max = 512)
 //
 int P6_read(int argc, char *argv[])        // read file
 {
-    int error, nBytes;
+    int nBytes, nRead;
     char buffer[520];
 
     if (argc < 2) nBytes = 1;
@@ -1346,17 +1345,21 @@ int P6_read(int argc, char *argv[])        // read file
     if (nBytes < 1) {
         nBytes = 1;
     }
-    if (nBytes > 512) {
-        nBytes = 512;
+    while (nBytes > 0) {
+        assert(nBytes >= 0);
+        int toWrite = MIN(sizeof(buffer), (size_t) nBytes);
+        nRead = fmsReadFile(lastFD, buffer, toWrite);
+        if (nRead < 0) {
+            if (nRead != FATERR_END_OF_FILE) {
+                fmsError(nRead);
+                return nRead;
+            }
+            break;
+        }
+        nBytes -= nRead;
+        if (nRead)
+            printf("\nBuffer[0-%d] = %.*s", nRead, nRead, buffer);
     }
-
-    if ((error = fmsReadFile(lastFD, buffer, nBytes)) < 0) {
-        fmsError(error);
-        return 0;
-    }
-    // terminate buffer
-    buffer[error] = 0;
-    printf("\nBuffer[0-%d] = %s", error, buffer);
 
     SWAP;
     P6_fileSlots(0, (char **) 0);
@@ -1372,25 +1375,31 @@ int P6_read(int argc, char *argv[])        // read file
 // 	>>write {<# of bytes>}
 //
 //		where <# of bytes> = # of bytes to write to file
-//									(default = 1, max = 52)
+//									(default = 1)
 //
 int P6_write(int argc, char *argv[])        // write file
 {
-    int error, nBytes;
-    char buffer[520];
-    strcpy(buffer, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
+    int nWritten, nBytes;
+    char alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
     if (argc < 2) nBytes = 1;
     else nBytes = INTEGER(argv[1]);
-    nBytes %= strlen(buffer);
 
-    if ((error = fmsWriteFile(lastFD, buffer, nBytes)) < 0) {
-        fmsError(error);
-        return 0;
+    if (nBytes < 1) {
+        nBytes = 1;
     }
 
-    buffer[nBytes] = 0;
-    printf("\nWrite = %s", buffer);
+    while (nBytes > 0) {
+        int toWrite = MIN(sizeof(alphabet) - 1, (size_t) nBytes);
+        nWritten = fmsWriteFile(lastFD, alphabet, toWrite);
+        if (nWritten < 0) {
+            fmsError(nWritten);
+            return nWritten;
+        }
+        nBytes -= nWritten;
+        if (nWritten)
+            printf("\nWrite = %.*s", nWritten, alphabet);
+    }
 
     SWAP;
     P6_fileSlots(0, (char **) 0);

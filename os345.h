@@ -27,6 +27,9 @@
 // ***********************************************************************
 // Miscellaneous directives
 #define INTEGER(s)    ((s)?(isdigit(*s)||(*s=='-')?(int)strtol(s,0,0):0):0)
+// Obviously, don't use these with x and y that have side-effects.
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
 // ***********************************************************************
 // Miscellaneous equates
