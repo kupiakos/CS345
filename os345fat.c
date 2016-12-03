@@ -409,7 +409,7 @@ int fmsWriteFile(int fileDescriptor, const char *data, int nBytes) {
         uint32 bytesLeftInSector = BYTES_PER_SECTOR - bufferIndex;
         if (bytesLeftInSector > nBytes)
             bytesLeftInSector = (uint32) nBytes;
-        fdEntry->fileIndex |= BUFFER_ALTERED;
+        fdEntry->flags |= BUFFER_ALTERED;
         memcpy(&fdEntry->buffer[bufferIndex], data, bytesLeftInSector);
         fdEntry->fileIndex += bytesLeftInSector;
         if (fdEntry->fileIndex > fdEntry->fileSize)
