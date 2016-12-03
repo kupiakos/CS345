@@ -1298,7 +1298,17 @@ int P6_open(int argc, char *argv[])        // open file
         return 0;
     }
     if (argc < 3) mode = OPEN_READ;
-    else mode = INTEGER(argv[2]);
+    else {
+        mode = sizeof(omode) / sizeof(*omode);
+        while (mode--) {
+            if (strcasecmp(argv[2], omode[mode]) == 0) {
+                break;
+            }
+        }
+        if (mode == -1) {
+            mode = INTEGER(argv[2]);
+        }
+    }
     mode %= 4;
 
     printf("\nOpen File \"%s\",%s", argv[1], omode[mode]);
