@@ -500,6 +500,10 @@ int fmsFlushFile(int fileDescriptor) {
         // should really never happen
         return FATERR_FILE_WRITE_PROTECTED;
     }
+
+    if (!fdEntry->currentCluster)
+        return FATERR_SUCCESS;
+
     if ((error = fmsWriteSector(fdEntry->buffer,
                                 C_2_S(fdEntry->currentCluster)))) {
         return error;
