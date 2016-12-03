@@ -1599,7 +1599,7 @@ int fmsGetDirEntry(char *fileName, DirEntry *dirEntry, int dir)
 
 // ***************************************************************************************
 // ***************************************************************************************
-int fmsGetNextFile(int *dirNum, char *mask, DirEntry *dirEntry, int dir)
+int fmsGetNextFile(int *entryNum, char *mask, DirEntry *dirEntry, int dir)
 //	Called by dir or ls command.
 // This function returns the next directory entry of the current directory.
 //	The dirNum parameter is set to 0 for the first entry and is subsequently
@@ -1621,21 +1621,12 @@ int fmsGetNextFile(int *dirNum, char *mask, DirEntry *dirEntry, int dir)
 {
     char buffer[BYTES_PER_SECTOR];
     int dirIndex, dirSector, error;
-    int loop = *dirNum / ENTRIES_PER_SECTOR;
+    int skip = *entryNum / ENTRIES_PER_SECTOR;
     int dirCluster = dir;
 
     while (1) {    // load directory sector
-        if (dir) {    // sub directory
-            while (loop--) {
-                dirCluster = getFatEntry(dirCluster, FAT1);
-                if (dirCluster == FAT_EOC) return FATERR_END_OF_DIRECTORY;
-                if (dirCluster == FAT_BAD) return FATERR_INVALID_FAT_CHAIN;
-                if (dirCluster < 2) return FATERR_INVALID_FAT_CHAIN;
-            }
-            dirSector = C_2_S(dirCluster);
-        } else {    // root directory
-            dirSector = (*dirNum / ENTRIES_PER_SECTOR) + BEG_ROOT_SECTOR;
-            if (dirSector >= BEG_DATA_SECTOR) return FATERR_END_OF_DIRECTORY;
+        if ((error = getDirSector(dirCluster, skip, &dirSector))) {
+            return error;
         }
 
         // read sector into directory buffer
@@ -1643,19 +1634,19 @@ int fmsGetNextFile(int *dirNum, char *mask, DirEntry *dirEntry, int dir)
 
         // find next matching directory entry
         while (1) {    // read directory entry
-            dirIndex = *dirNum % ENTRIES_PER_SECTOR;
+            dirIndex = *entryNum % ENTRIES_PER_SECTOR;
             memcpy(dirEntry, &buffer[dirIndex * sizeof(DirEntry)], sizeof(DirEntry));
             if (dirEntry->name[0] == 0) return FATERR_END_OF_DIRECTORY;    // EOD
-            (*dirNum)++;                                // prepare for next read
+            (*entryNum)++;                                // prepare for next read
             if (dirEntry->name[0] == 0xe5);            // Deleted entry, go on...
             else if (dirEntry->attributes == LONGNAME);
             else if (fmsMask(mask, (char *) dirEntry->name, (char *) dirEntry->extension))
                 return 0;   // return if valid
             // break if sector boundary
-            if ((*dirNum % ENTRIES_PER_SECTOR) == 0) break;
+            if ((*entryNum % ENTRIES_PER_SECTOR) == 0) break;
         }
         // next directory sector/cluster
-        loop = 1;
+        skip = 1;
     }
     return 0;
 } // end fmsGetNextFile
@@ -1845,6 +1836,83 @@ int fmsUnMount(char *fileName, void *ramDisk)
 } // end fmsUnMount
 
 
+int clearFATChain(int dirCluster, unsigned char *FAT) {
+    if (dirCluster == 0)
+        return FATERR_SUCCESS;
+    int nextCluster = dirCluster;
+    do {
+        if (nextCluster == FAT_BAD || nextCluster < 2)
+            return FATERR_INVALID_FAT_CHAIN;
+        dirCluster = nextCluster;
+        nextCluster = getFatEntry(dirCluster, FAT);
+        setFatEntry(dirCluster, 0, FAT_UNUSED);
+    } while (nextCluster != FAT_EOC);
+    return FATERR_SUCCESS;
+}
+
+int fmsReadDirEntry(int dir, int entryNum, DirEntry *dirEntry) {
+    char buffer[BYTES_PER_SECTOR];
+    int dirSector, error;
+
+    if ((error = getDirSector(dir, entryNum / ENTRIES_PER_SECTOR, &dirSector))) {
+        return error;
+    }
+
+    if ((error = fmsReadSector(buffer, dirSector))) {
+        return error;
+    }
+
+    int dirIndex = entryNum % ENTRIES_PER_SECTOR;
+    memcpy(dirEntry, (DirEntry *) buffer + entryNum, sizeof(*dirEntry));
+    return FATERR_SUCCESS;
+}
+
+int fmsWriteDirEntry(int dir, int entryNum, const DirEntry *dirEntry) {
+    char buffer[BYTES_PER_SECTOR];
+    int dirSector, error;
+
+    if ((error = getDirSector(dir, entryNum / ENTRIES_PER_SECTOR, &dirSector))) {
+        return error;
+    }
+
+    if ((error = fmsReadSector(buffer, dirSector))) {
+        return error;
+    }
+
+    int dirIndex = entryNum % ENTRIES_PER_SECTOR;
+    memcpy((DirEntry *) buffer + entryNum, dirEntry, sizeof(*dirEntry));
+
+    if ((error = fmsWriteSector(buffer, dirSector))) {
+        return error;
+    }
+
+    return FATERR_SUCCESS;
+}
+
+int getDirSector(int dir, int skip, int *outSector) {
+    int dirSector;
+    int dirCluster = dir;
+    if (dir) {
+        // not the root dir
+        while (skip--) {
+            dirCluster = getFatEntry(dirCluster, FAT1);
+            if (dirCluster == FAT_EOC)
+                return FATERR_END_OF_DIRECTORY;
+            if (dirCluster == FAT_BAD)
+                return FATERR_INVALID_FAT_CHAIN;
+            if (dirCluster < 2)
+                return FATERR_INVALID_FAT_CHAIN;
+        }
+        dirSector = C_2_S(dirCluster);
+    } else {
+        // root dir
+        dirSector = skip + BEG_ROOT_SECTOR;
+        if (dirSector >= BEG_DATA_SECTOR)
+            return FATERR_END_OF_DIRECTORY;
+    }
+    *outSector = dirSector;
+    return FATERR_SUCCESS;
+}
 
 // ***************************************************************************************
 // ***************************************************************************************
@@ -1872,10 +1940,25 @@ int fmsWriteSector(void *buffer, int sectorNumber)
 } // end fmsWriteSector
 
 
+int nextFreeCluster(int startCluster, int *outCluster, unsigned char *FAT) {
+    int cluster = startCluster;
+    unsigned short entry;
+    do {
+        entry = getFatEntry(cluster, FAT);
+        if (++cluster * 3 / 2 >= sizeof(NUM_FAT_SECTORS * BYTES_PER_SECTOR)) {
+            cluster = 2;
+        }
+        if (cluster == startCluster) {
+            return FATERR_FILE_SPACE_FULL;
+        }
+    } while (entry);
+    *outCluster = entry;
+    return FATERR_SUCCESS;
+}
 
 // ***************************************************************************************
-// Take a FAT table index and return an unsigned short containing the 12-bit FAT entry code
 // ***************************************************************************************
+// Replace the 12-bit FAT entry code in the unsigned char FAT table at index
 void setFatEntry(int FATindex, unsigned short FAT12ClusEntryVal, unsigned char *FAT) {
     int FATOffset = ((FATindex * 3) / 2);        // Calculate the offset
     int FATData = *((unsigned short *) &FAT[FATOffset]);
@@ -1891,15 +1974,16 @@ void setFatEntry(int FATindex, unsigned short FAT12ClusEntryVal, unsigned char *
     }
     // Update FAT entry value in the FAT table
     FATData = BigEndian(FATData);
-    *((unsigned short *) &FAT[FATOffset]) = FATData | FAT12ClusEntryVal;
+    *((unsigned short *) &FAT[FATOffset]) = (unsigned short) (FATData | FAT12ClusEntryVal);
     return;
 } // End SetFatEntry
 
 
 
+
 // ***************************************************************************************
+// Take a FAT table index and return an unsigned short containing the 12-bit FAT entry code
 // ***************************************************************************************
-// Replace the 12-bit FAT entry code in the unsigned char FAT table at index
 unsigned short getFatEntry(int FATindex, unsigned char *FATtable) {
     unsigned short FATEntryCode;                // The return value
     int FatOffset = ((FATindex * 3) / 2);    // Calculate the offset of the unsigned short to get

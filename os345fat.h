@@ -33,6 +33,7 @@ typedef unsigned int uint32;
 #define IsValidOpenMode(x) (((x) >= OPEN_READ) && ((x) <= OPEN_RDWR))
 
 #define ENTRIES_PER_SECTOR 16
+#define FAT_UNUSED 0
 #define FAT_EOC   4095
 #define FAT_BAD   4087
 #define C_2_S(c) ((c) + BEG_DATA_SECTOR - 2)
@@ -73,6 +74,7 @@ typedef struct {
     //   x02 =
     //   x01 =
     uint32 fileIndex;            // next character position (from beg of file)
+    uint16 directoryEntry;       // position in directory entry
     char buffer[BYTES_PER_SECTOR];    // file buffer
 } FDEntry;
 #pragma pack(pop)							// End of strict alignment
@@ -191,11 +193,21 @@ int fmsLoadFile(char *, void *, int);
 
 int fmsMount(char *, void *);
 
+int getDirSector(int dir, int skip, int *outSector);
+
 int fmsReadSector(void *, int);
 
 int fmsWriteSector(void *, int);
 
+int nextFreeCluster(int startCluster, int *outCluster, unsigned char *FAT);
+
 int fmsUnMount(char *, void *);
+
+int clearFATChain(int dirCluster, unsigned char *FAT);
+
+int fmsReadDirEntry(int dir, int entryNum, DirEntry *dirEntry);
+
+int fmsWriteDirEntry(int dir, int entryNum, const DirEntry *dirEntry);
 
 void fmsError(int);
 
@@ -271,6 +283,7 @@ int fmsDiskStats(DiskSize *dskSize);
 #define ERR80_MSG "File Seek Error"
 #define ERR81_MSG "File Locked"
 #define ERR82_MSG "File Delete Protected"
+// wtf: what is the difference between "write protected" and "read only"?
 #define ERR83_MSG "File Write Protected"
 #define ERR84_MSG "Read Only File"
 #define ERR85_MSG "Illegal Access"
