@@ -187,7 +187,7 @@ int fmsReadFile(int, char *, int);
 
 int fmsSeekFile(int, int);
 
-int fmsWriteFile(int, char *, int);
+int fmsWriteFile(int, const char *, int);
 
 int fmsLoadFile(char *, void *, int);
 

@@ -43,7 +43,7 @@ int fmsSeekFile(int, int);
 
 int fmsFlushFile(int);
 
-int fmsWriteFile(int, char *, int);
+int fmsWriteFile(int, const char *, int);
 
 // ***********************************************************************
 // ***********************************************************************
@@ -330,7 +330,7 @@ int fmsReadFile(int fileDescriptor, char *buffer, int nBytes) {
 // from the current file pointer position.
 // Return the number of bytes successfully written; otherwise, return the error number.
 //
-int fmsWriteFile(int fileDescriptor, char *buffer, int nBytes) {
+int fmsWriteFile(int fileDescriptor, const char *data, int nBytes) {
     if (!IsValidFd(fileDescriptor)) {
         return FATERR_INVALID_DESCRIPTOR;
     }
@@ -408,12 +408,12 @@ int fmsWriteFile(int fileDescriptor, char *buffer, int nBytes) {
         if (bytesLeftInSector > nBytes)
             bytesLeftInSector = (uint32) nBytes;
         fdEntry->fileIndex |= BUFFER_ALTERED;
-        memcpy(buffer, &fdEntry->buffer[bufferIndex], bytesLeftInSector);
+        memcpy(&fdEntry->buffer[bufferIndex], data, bytesLeftInSector);
         fdEntry->fileIndex += bytesLeftInSector;
         if (fdEntry->fileIndex > fdEntry->fileSize)
             fdEntry->fileSize = fdEntry->fileIndex;
         numWritten += bytesLeftInSector;
-        buffer += bytesLeftInSector;
+        data += bytesLeftInSector;
         nBytes -= bytesLeftInSector;
     }
 
