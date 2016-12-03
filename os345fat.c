@@ -410,6 +410,8 @@ int fmsWriteFile(int fileDescriptor, char *buffer, int nBytes) {
         fdEntry->fileIndex |= BUFFER_ALTERED;
         memcpy(buffer, &fdEntry->buffer[bufferIndex], bytesLeftInSector);
         fdEntry->fileIndex += bytesLeftInSector;
+        if (fdEntry->fileIndex > fdEntry->fileSize)
+            fdEntry->fileSize = fdEntry->fileIndex;
         numWritten += bytesLeftInSector;
         buffer += bytesLeftInSector;
         nBytes -= bytesLeftInSector;
