@@ -189,6 +189,8 @@ int fmsOpenFile(char *fileName, int rwMode) {
     if ((err = fmsGetNextFile(&entryNum, fileName, &dirEntry, dir)) != 0) {
         return err;
     }
+    // The entryNum will be off by one as it points to the next to start with for fmsGetNextFile
+    --entryNum;
     if (dirEntry.name[0] == 0 || dirEntry.name[0] == ' ') {
         return FATERR_INVALID_FILE_NAME;
     }
