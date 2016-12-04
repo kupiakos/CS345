@@ -360,8 +360,8 @@ int fmsOpenFile(char *fileName, int rwMode) {
         if (checkEntry->name[0] == 0) {
             newFd = checkFd;
         } else if (checkEntry->directoryCluster == dir &&
-                   strncasecmp((char *) checkEntry->name, (char *) dirEntry.name, 8)  &&
-                   strncasecmp((char *) checkEntry->extension, (char *) dirEntry.extension, 3)) {
+                   strncasecmp((char *) checkEntry->name, (char *) dirEntry.name, 8) == 0 &&
+                   strncasecmp((char *) checkEntry->extension, (char *) dirEntry.extension, 3) == 0) {
             return FATERR_FILE_ALREADY_OPEN;
         }
     }
