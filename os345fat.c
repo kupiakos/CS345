@@ -265,10 +265,30 @@ int fmsDefineFile(char *fileName, int attribute) {
 // Return 0 for success; otherwise, return the error number.
 //
 int fmsDeleteFile(char *fileName) {
-    // ?? add code here
-    printf("\nfmsDeleteFile Not Implemented");
+    int dir = CDIR;
+    int error;
+    if (isValidFileName(fileName) != 1) {
+        return FATERR_INVALID_FILE_NAME;
+    }
 
-    return FATERR_FILE_NOT_DEFINED;
+    DirEntry entry;
+    int entryNum;
+    error = fmsGetNextFile(&entryNum, fileName, &entry, dir);
+    --entryNum;
+    if (error) return error;
+
+    if (entry.attributes & DIRECTORY) {
+        return FATERR_CANNOT_DELETE;
+    }
+
+    entry.name[0] = 0xe5;
+    error = fmsWriteDirEntry(dir, entryNum, &entry);
+    if (error) return error;
+
+    clearFATChain(entry.startCluster, FAT1);
+    clearFATChain(entry.startCluster, FAT2);
+
+    return FATERR_SUCCESS;
 } // end fmsDeleteFile
 
 
