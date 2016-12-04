@@ -499,13 +499,24 @@ int fmsFlushFile(int fileDescriptor) {
     if (fdEntry->name[0] == 0)
         return FATERR_FILE_NOT_OPEN;
 
+    if (fdEntry->mode == OPEN_READ) {
+        return FATERR_SUCCESS;
+    }
+
+    // Update file in directory entry
+    DirEntry dirEntry;
+    error = fmsReadDirEntry(fdEntry->directoryCluster, fdEntry->directoryEntry, &dirEntry);
+    if (error) return error;
+
+    dirEntry.startCluster = fdEntry->startCluster;
+    dirEntry.fileSize = fdEntry->fileSize;
+    setDirTimeDate(&dirEntry);
+
+    error = fmsWriteDirEntry(fdEntry->directoryCluster, fdEntry->directoryEntry, &dirEntry);
+    if (error) return error;
+
     if (!(fdEntry->flags & BUFFER_ALTERED))
         return FATERR_SUCCESS;
-
-    if (fdEntry->mode == OPEN_READ) {
-        // should really never happen
-        return FATERR_FILE_WRITE_PROTECTED;
-    }
 
     if (!fdEntry->currentCluster)
         return FATERR_SUCCESS;
