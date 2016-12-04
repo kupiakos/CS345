@@ -322,7 +322,7 @@ int fmsOpenFile(char *fileName, int rwMode) {
 
     // Get the associated directory entry
     DirEntry dirEntry;
-    int entryNum;
+    int entryNum = 0;
     int dir = CDIR;
     if ((err = fmsGetNextFile(&entryNum, fileName, &dirEntry, dir)) != 0) {
         if (err == FATERR_END_OF_DIRECTORY) {

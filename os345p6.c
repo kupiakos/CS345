@@ -398,7 +398,7 @@ int P6_type(int argc, char *argv[])        // display file
         SWAP;
     }
     if (nBytes != FATERR_END_OF_FILE) fmsError(nBytes);
-    if (error = fmsCloseFile(FDs)) fmsError(error);
+    if ((error = fmsCloseFile(FDs))) fmsError(error);
     return 0;
 } // end P6_type
 
