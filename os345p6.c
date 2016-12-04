@@ -409,7 +409,7 @@ int P6_type(int argc, char *argv[])        // display file
 //	copy <file1>,<file2>
 int P6_copy(int argc, char *argv[])            // copy file
 {
-    int error, nBytes, FDs, FDd;
+    int error = 0, nBytes, FDs, FDd;
     char buffer[BYTES_PER_SECTOR];
 
     if (!diskMounted) {

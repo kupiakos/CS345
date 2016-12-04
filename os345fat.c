@@ -325,7 +325,17 @@ int fmsOpenFile(char *fileName, int rwMode) {
     int entryNum;
     int dir = CDIR;
     if ((err = fmsGetNextFile(&entryNum, fileName, &dirEntry, dir)) != 0) {
-        return err;
+        if (err == FATERR_END_OF_DIRECTORY) {
+            if (rwMode == OPEN_WRITE || rwMode == OPEN_RDWR) {
+                err = fmsDefineFile(fileName, ARCHIVE);
+                if (err) return err;
+                return fmsOpenFile(fileName, rwMode);
+            } else {
+                return FATERR_FILE_NOT_DEFINED;
+            }
+        } else {
+            return err;
+        }
     }
     // The entryNum will be off by one as it points to the next to start with for fmsGetNextFile
     --entryNum;
