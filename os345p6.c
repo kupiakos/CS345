@@ -1647,6 +1647,12 @@ int fmsGetNextFile(int *entryNum, char *mask, DirEntry *dirEntry, int dir)
         if ((error = getDirSector(dirCluster, skip, &dirSector))) {
             return error;
         }
+        if (dir) {
+            // when traversing the root directory,
+            // cannot keep track of clusters already skipped
+            skip = 0;
+            dirCluster = S_2_C(dirSector);
+        }
 
         // read sector into directory buffer
         if ((error = fmsReadSector(buffer, dirSector))) return error;
@@ -1665,7 +1671,7 @@ int fmsGetNextFile(int *entryNum, char *mask, DirEntry *dirEntry, int dir)
             if ((*entryNum % ENTRIES_PER_SECTOR) == 0) break;
         }
         // next directory sector/cluster
-        skip = 1;
+        ++skip;
     }
     return 0;
 } // end fmsGetNextFile

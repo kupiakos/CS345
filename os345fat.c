@@ -131,10 +131,128 @@ int fmsCloseFile(int fileDescriptor) {
 // Return 0 for success, otherwise, return the error number.
 //
 int fmsDefineFile(char *fileName, int attribute) {
-    // ?? add code here
-    printf("\nfmsDefineFile Not Implemented");
+    int dir = CDIR;
+    int error;
+    // TODO: Modify for LFN
+    if (isValidFileName(fileName) != 1) {
+        return FATERR_INVALID_FILE_NAME;
+    }
 
-    return FATERR_DISK_NOT_MOUNTED;
+    DirEntry entry;
+    error = fmsGetDirEntry(fileName, &entry, dir);
+    if (error != FATERR_FILE_NOT_DEFINED) {
+        if (error == FATERR_SUCCESS)
+            return FATERR_FILE_ALREADY_DEFINED;
+        return error;
+    }
+
+    // We need to find a directory entry to write to
+    DirEnum dirEnum;
+    error = fmsGetFirstDirEntry(dir, &dirEnum, 0);
+    if (error) return error;
+    while ((error = fmsGetNextDirEntry(&dirEnum, 0)) == FATERR_SUCCESS) {
+        // Either unused or deleted entry
+        if (dirEnum.entry.name[0] == 0 || dirEnum.entry.name[0] == 0xe5) {
+            break;
+        }
+    }
+    int dirCluster, index;
+    if (error == FATERR_SUCCESS) {
+        // We broke out of the loop because we found an available entry to write to
+        dirCluster = dirEnum.currentCluster;
+        index = dirEnum.entryNum;
+
+        if (dir != 0) {
+            // The root directory can store "past" its entries per sector, but subdirectories cannot
+            index %= ENTRIES_PER_SECTOR;
+        }
+    } else if (error == FATERR_END_OF_DIRECTORY) {
+        // There wasn't enough room in the current directory
+        if (dir == 0) {
+            // We can't create more room in the root directory
+            return FATERR_FILE_DIRECTORY_FULL;
+        }
+        // Add a new cluster to make this directory larger
+        error = nextFreeCluster(dirEnum.currentCluster, &dirCluster, FAT1);
+        if (error) return error;
+        // Completely clear the new sector
+        char buffer[BYTES_PER_SECTOR];
+        memset(buffer, 0, sizeof buffer);
+        error = fmsWriteSector(buffer, C_2_S(dirCluster));
+        if (error) return error;
+        // Claim this cluster
+        setFatEntry(dirCluster, FAT_EOC, FAT1);
+        setFatEntry(dirCluster, FAT_EOC, FAT2);
+        // Reroute the previous cluster to here
+        setFatEntry(dirEnum.currentCluster, (unsigned short) dirCluster, FAT1);
+        setFatEntry(dirEnum.currentCluster, (unsigned short) dirCluster, FAT2);
+        // We'll now be writing to the first entry
+        index = 0;
+    } else {
+        // A problem occurred
+        return error;
+    }
+
+    // Now that we have a directory entry for our new file, create the file itself
+    memset(entry.name, ' ', 8);
+    memset(entry.extension, ' ', 3);
+    // Copy the short file name in
+    char *c = strchr(fileName, '.');
+    if (c) {
+        memcpy(entry.name, fileName, c - fileName);
+        memcpy(entry.extension, c + 1, strchr(c, '\0') - c - 1);
+    } else {
+        // no extension
+        memcpy(entry.name, fileName, strlen(fileName));
+    }
+
+    entry.attributes = (uint8) attribute;
+    setDirTimeDate(&entry);
+    entry.startCluster = 0;
+    // http://www.maverick-os.dk/FileSystemFormats/FAT16_FileSystem.html#FileSize
+    // "For other entries than files then file size field should be set to 0."
+    // i.e., we don't need to keep track of fileSize if we're creating a directory
+    entry.fileSize = 0;
+
+    if (attribute & DIRECTORY) {
+        // Create a cluster to hold the data for the new directory
+        int newCluster;
+        error = nextFreeCluster(dirEnum.startCluster, &newCluster, FAT1);
+        if (error) return error;
+        // Completely clear the new sector
+        char buffer[BYTES_PER_SECTOR];
+        memset(buffer, 0, sizeof buffer);
+        error = fmsWriteSector(buffer, C_2_S(newCluster));
+        if (error) return error;
+        // Claim this cluster
+        setFatEntry(newCluster, FAT_EOC, FAT1);
+        setFatEntry(newCluster, FAT_EOC, FAT2);
+
+        entry.startCluster = (uint16) newCluster;
+        // Create the default names and add them to the directory
+        char *names[] = {".", ".."};
+        for (int i = 0; i < sizeof(names) / sizeof(*names); ++i) {
+            char *name = names[i];
+            DirEntry childEntry;
+            memset(childEntry.name, ' ', 8);
+            memcpy(childEntry.name, name, strlen(name));
+            memset(childEntry.extension, ' ' ,3);
+            childEntry.attributes = DIRECTORY;
+            setDirTimeDate(&childEntry);
+            if (i == 0)
+                childEntry.startCluster = (uint16) entry.startCluster;
+            else
+                childEntry.startCluster = (uint16) dir;
+            childEntry.fileSize = 0;
+            error = fmsWriteDirEntry(newCluster, i, &childEntry);
+            if (error) return error;
+        }
+    }
+
+    error = fmsWriteDirEntry(dirCluster, index, &entry);
+    if (error) return error;
+
+    return FATERR_SUCCESS;
 } // end fmsDefineFile
 
 
