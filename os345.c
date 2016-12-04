@@ -242,12 +242,12 @@ static int scheduler() {
                 return -1;
             }
         }
-//        if (tcb[nextTask].state & S_EXIT || !tcb[nextTask].name) {
-//            // This is an invalid task and should be dequeued
-//            deQ(rq, nextTask);
-//            nextTask = -1;
-//            continue;
-//        }
+        if (tcb[nextTask].state & S_EXIT || !tcb[nextTask].name) {
+            // This is an invalid task and should be dequeued
+            deQ(rq, nextTask);
+            nextTask = -1;
+            continue;
+        }
         if (scheduler_mode != 0 && tcb[nextTask].clocksLeft-- <= 0) {
             // This task is exhausted and so we remove it from the queue and put it into the exhausted list
             tcb[nextTask].clocksLeft = 0;

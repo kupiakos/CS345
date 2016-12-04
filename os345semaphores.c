@@ -217,7 +217,7 @@ bool deleteSemaphore(Semaphore **semaphore) {
     while (sem) {
         if (sem == *semaphore) {
             // semaphore found, delete from list, release memory
-            *semLink = (Semaphore *) sem->semLink;
+            *semLink = sem->semLink;
 
             // free the name array before freeing semaphore
             printf("\ndeleteSemaphore(%s)", sem->name);
@@ -234,8 +234,8 @@ bool deleteSemaphore(Semaphore **semaphore) {
             return TRUE;
         }
         // move to next semaphore
-        semLink = (Semaphore **) &sem->semLink;
-        sem = (Semaphore *) sem->semLink;
+        semLink = &sem->semLink;
+        sem = sem->semLink;
     }
 
     // could not delete
