@@ -21,6 +21,7 @@
 #include <ctype.h>
 #include <time.h>
 #include <assert.h>
+#include <iconv.h>
 #include "os345.h"
 #include "os345fat.h"
 
@@ -178,13 +179,15 @@ int P6_dir(int argc, char *argv[])        // list directory
 
     //dumpRAMDisk("Root Directory", 19*512, 19*512+256);
     printf("\nName:ext                time      date    cluster  size");
+    uint16 longFileName[256];
+    longFileName[255] = 0;
     while (1) {
-        error = fmsGetNextFile(&index, mask, &dirEntry, dir);
+        error = fmsGetNextFile(&index, mask, &dirEntry, dir, longFileName);
         if (error) {
             if (error != FATERR_END_OF_DIRECTORY) fmsError(error);
             break;
         }
-        printDirectoryEntry(&dirEntry);
+        printDirectoryEntry(&dirEntry, longFileName);
         SWAP;
     }
     //dumpRAMDisk("Root Directory", 19*512, 20*512);
@@ -605,39 +608,33 @@ int P6_fileSlots(int argc, char *argv[])    // list open file slots
 // *	Support functions
 // ***********************************************************************
 // Print directory entry
-void printDirectoryEntry(DirEntry *dirent) {
-    int i = 7;
-    char p_string[64] = "              ------  00:00:00 03/01/2004";
+void printDirectoryEntry(DirEntry *dirEntry, uint16 *longFileName) {
+    const char *attr_letters = "RHSVDA";
+    char attr_info[] = "------";
+    char name[800];
     FATDate date;                                            // The Date bit field structure
     FATTime time;                                            // The Time bit field structure
 
-    strncpy(p_string, (char *) &(dirent->name), 8);    // Copies 8 bytes from the name
-    while (p_string[i] == ' ') i--;
-    p_string[i + 1] = '.';                                    // Add extension
-    strncpy(&p_string[i + 2], (char *) &(dirent->extension), 3);
-    while (p_string[i + 4] == ' ') i--;
-    if (p_string[i + 4] == '.') p_string[i + 4] = ' ';
+    if (!longFileName || !longFileName[0]) {
+        // Short file name
+        dirEntryToStr(dirEntry->name, dirEntry->extension, name);
+    } else {
+        // Copy long file name as UTF-8
+        utf16ToUtf8(longFileName, name, sizeof(name));
+    }
 
     // Generate the attributes
-    if (dirent->attributes & 0x01) p_string[14] = 'R';
-    if (dirent->attributes & 0x02) p_string[15] = 'H';
-    if (dirent->attributes & 0x04) p_string[16] = 'S';
-    if (dirent->attributes & 0x08) p_string[17] = 'V';
-    if (dirent->attributes & 0x10) p_string[18] = 'D';
-    if (dirent->attributes & 0x20) p_string[19] = 'A';
+    for (int i = 0; i < 6; ++i) {
+        if (dirEntry->attributes & (1 << i))
+            attr_info[i] = attr_letters[i];
+    }
 
-    // Extract the time and format it into the string...
-    memcpy(&time, &(dirent->time), sizeof(FATTime));
-    sprintf(&p_string[22], "%02u:%02u:%02u  ", time.hour, time.min, time.sec * 2);
-
-    // Extract the date and format it as well, inserting it into the string...
-    memcpy(&date, &(dirent->date), sizeof(FATDate));
-    sprintf(&p_string[31], "%02u/%02u/%04u %5u %5u",
-            date.month + 1, date.day, date.year + 1980,
-            dirent->startCluster, dirent->fileSize);
-
-    // p_string is now ready!
-    printf("\n%s", p_string);
+    printf("\n%-20s %s  %02u:%02u:%02u %02u/%02u/%04u %5u %5u",
+           name, attr_info,
+           time.hour, time.min, time.sec * 2,
+           date.month + 1, date.day, date.year + 1980,
+           dirEntry->startCluster, dirEntry->fileSize
+    );
     return;
 } // end PrintDirectoryEntry
 
@@ -829,15 +826,15 @@ void checkDirectory(char *dirName, unsigned char fat[], int dir) {
     //	check for dot/dotdot
     if (dir) {
         index = 0;
-        if (fmsGetNextFile(&index, ".", &dirEntry, dir) < 0)
+        if (fmsGetNextFile(&index, ".", &dirEntry, dir, NULL) < 0)
             printf("\n  \".\" missing from \"%s\" directory", dirName);
         index = 0;
-        if (fmsGetNextFile(&index, "..", &dirEntry, dir) < 0)
+        if (fmsGetNextFile(&index, "..", &dirEntry, dir, NULL) < 0)
             printf("\n  \"..\" missing from \"%s\" directory", dirName);
     }
     index = 0;
     while (1) {
-        if (fmsGetNextFile(&index, "*.*", &dirEntry, dir)) break;
+        if (fmsGetNextFile(&index, "*.*", &dirEntry, dir, NULL)) break;
         // process file name
         getFileName(fileName, &dirEntry);
         if (dirEntry.attributes & (VOLUME || DIRECTORY))
@@ -1511,17 +1508,55 @@ void setDirTimeDate(DirEntry *dir) {
     return;
 } // end setDirTimeDate
 
+size_t utf8ToUtf16(char *inBuffer, uint16 *outBuffer, size_t outSize) {
+    iconv_t utf8_to_utf16 = iconv_open("UTF-16LE", "UTF-8");
+    size_t inLeft = strlen(inBuffer);
+    size_t result = iconv(utf8_to_utf16,
+                          &inBuffer, &inLeft,
+                          (char **) &outBuffer, &outSize
+    );
+    iconv_close(utf8_to_utf16);
+    return result;
+}
+
+size_t utf16ToUtf8(uint16 *inBuffer, char *outBuffer, size_t outSize) {
+    iconv_t utf16_to_utf8 = iconv_open("UTF-8", "UTF-16LE");
+    size_t inLeft;
+    for (inLeft = 0; inBuffer[inLeft]; ++inLeft);
+    inLeft *= 2; // Adjust to 2-byte characters
+    size_t result = iconv(utf16_to_utf8,
+                          (char **)&inBuffer, &inLeft,
+                          &outBuffer, &outSize
+    );
+    iconv_close(utf16_to_utf8);
+    return result;
+}
+
+uint8 calcLfnChecksum(const uint8 name[8], const uint8 extension[3]) {
+    uint8 result = 0;
+    for (int i = 0; i < 8; ++i) {
+        result = (uint8) RCircShift(result);
+        result += name[i];
+    }
+    for (int i = 0; i < 3; ++i) {
+        result = (uint8) RCircShift(result);
+        result += extension[i];
+    }
+    return result;
+}
 
 void dirEntryToStr(const uint8 name[8], const uint8 extension[3], char *fileName) {
     uint8 *c = memchr(name, ' ', 8);
     size_t nameLen = c ? c - name : 8;
     memcpy(fileName, name, nameLen);
     c = memchr(extension, ' ', 3);
-    if (!c) {
+    size_t extLen = c ? c - extension : 3;
+    if (c == extension) {
         fileName[nameLen] = '\0';
     } else {
         fileName[nameLen] = '.';
-        memcpy(fileName + nameLen + 1, extension, c - extension);
+        memcpy(fileName + nameLen + 1, extension, extLen);
+        fileName[nameLen + 1 + extLen] = '\0';
     }
 }
 
@@ -1635,9 +1670,10 @@ int fmsGetDirEntry(char *fileName, DirEntry *dirEntry, int dir)
 //
 //    FATERR_FILE_NOT_DEFINED = File Not Defined
 {
+    static uint16 longFileName[256];
     int error, index = 0;
     //if (isValidFileName(fileName) < 1) return FATERR_INVALID_FILE_NAME;
-    error = fmsGetNextFile(&index, fileName, dirEntry, dir);
+    error = fmsGetNextFile(&index, fileName, dirEntry, dir, longFileName);
     return (error ? ((error == FATERR_END_OF_DIRECTORY) ? FATERR_FILE_NOT_DEFINED : error) : 0);
 } // end fmsGetDirEntry
 
@@ -1645,7 +1681,7 @@ int fmsGetDirEntry(char *fileName, DirEntry *dirEntry, int dir)
 
 // ***************************************************************************************
 // ***************************************************************************************
-int fmsGetNextFile(int *entryNum, char *mask, DirEntry *dirEntry, int dir)
+int fmsGetNextFile(int *entryNum, char *mask, DirEntry *dirEntry, int dir, uint16 *longFileName)
 //	Called by dir or ls command.
 // This function returns the next directory entry of the current directory.
 //	The dirNum parameter is set to 0 for the first entry and is subsequently
@@ -1669,6 +1705,9 @@ int fmsGetNextFile(int *entryNum, char *mask, DirEntry *dirEntry, int dir)
     int dirIndex, dirSector, error;
     int skip = *entryNum / ENTRIES_PER_SECTOR;
     int dirCluster = dir;
+    bool lfnConstructed = false;
+    uint8 checkSum = 0;
+    char lfnMask[600];
 
     while (1) {    // load directory sector
         if ((error = getDirSector(dirCluster, skip, &dirSector))) {
@@ -1691,9 +1730,55 @@ int fmsGetNextFile(int *entryNum, char *mask, DirEntry *dirEntry, int dir)
             if (dirEntry->name[0] == 0) return FATERR_END_OF_DIRECTORY;    // EOD
             (*entryNum)++;                                // prepare for next read
             if (dirEntry->name[0] == 0xe5);            // Deleted entry, go on...
-            else if (dirEntry->attributes == LONGNAME);
-            else if (fmsMask(mask, (char *) dirEntry->name, (char *) dirEntry->extension))
-                return 0;   // return if valid
+            else if (dirEntry->attributes == LONGNAME) {
+                do {
+                    uint8 *lfnData = (uint8 *) dirEntry;
+                    if (!longFileName || (lfnData[0] & 0x80))
+                        break;
+                    // the lfn is not deleted
+                    if (lfnData[0] & 0x40) {
+                        // This is the last (first listed) LFN entry
+                        checkSum = lfnData[0x0d];
+                    } else if (checkSum != lfnData[0x0d])
+                        break;
+                    uint16 index = (uint16) (((lfnData[0] & 0x3f) - 1) * 13);
+                    if (index > 247) {
+                        // Too long a Long File Name (max size 255 characters + NUL byte)
+                        checkSum = 0;
+                        break;
+                    }
+                    uint16 *dst = (longFileName + index);
+                    memcpy(dst + 0x00, lfnData + 0x01, 5 * 2);  // 00-04
+                    memcpy(dst + 0x05, lfnData + 0x0e, 3 * 2);  // 05-07
+                    if (index < 247) {
+                        memcpy(dst + 0x08, lfnData + 0x14, 3 * 2);  // 08-10
+                        memcpy(dst + 0x0b, lfnData + 0x1c, 2 * 2);  // 11-12
+                    }
+                    if (index == 0)
+                        lfnConstructed = true;
+                    break;
+                } while (1);
+            } else {
+                bool matches = false;
+                if (lfnConstructed) {
+                    assert(longFileName);
+                    utf16ToUtf8(longFileName, lfnMask, sizeof(lfnMask));
+                    matches = strcasecmp(lfnMask, mask) == 0;
+                }
+                if (!matches)
+                    matches = fmsMask(mask, (char *) dirEntry->name, (char *) dirEntry->extension) != 0;
+                if (matches) {
+                    if (longFileName) {
+                        if (!lfnConstructed || calcLfnChecksum(dirEntry->name, dirEntry->extension) != checkSum) {
+                            longFileName[0] = 0;
+                        }
+                    }
+                    return 0;   // return if valid
+                } else {
+                    lfnConstructed = false;
+                    checkSum = 0;
+                }
+            }
             // break if sector boundary
             if ((*entryNum % ENTRIES_PER_SECTOR) == 0) break;
         }
@@ -1747,7 +1832,7 @@ int fmsGetNextDirEntry(DirEnum *dirEnum, int skip) {
     }
     dirEnum->entryNum = entryNum;
     memcpy(&dirEnum->entry,
-           (DirEntry *)dirEnum->buffer + (entryNum % ENTRIES_PER_SECTOR),
+           (DirEntry *) dirEnum->buffer + (entryNum % ENTRIES_PER_SECTOR),
            sizeof(DirEntry));
     return FATERR_SUCCESS;
 }
@@ -1786,7 +1871,7 @@ int fmsGetPathDir(const char *path, int startDir, int *resultDir, char *tail) {
             int index = 0;
             DirEntry dirEntry;
             // the path is split at least into two parts
-            if ((error = fmsGetNextFile(&index, prev, &dirEntry, dir)) != FATERR_SUCCESS) {
+            if ((error = fmsGetNextFile(&index, prev, &dirEntry, dir, NULL)) != FATERR_SUCCESS) {
                 if (error == FATERR_END_OF_DIRECTORY) {
                     error = FATERR_DIRECTORY_NOT_FOUND;
                 }
@@ -1863,7 +1948,7 @@ void sizeDisk(DiskSize *dskSize, char *mask, int dir) {
     DirEntry dirEntry;
 
     while (1) {
-        if (fmsGetNextFile(&index, mask, &dirEntry, dir)) break;
+        if (fmsGetNextFile(&index, mask, &dirEntry, dir, NULL)) break;
         if (dirEntry.name[0] == '.') continue;
         dskSize->used += ((dirEntry.fileSize + BYTES_PER_SECTOR) / BYTES_PER_SECTOR);             // # of sectors used
         if ((dirEntry.attributes == DIRECTORY) && (dirEntry.name[0] != '.')) {

@@ -162,7 +162,7 @@ typedef struct {
 //
 void dumpRAMDisk(char *, int, int);
 
-void printDirectoryEntry(DirEntry *);
+void printDirectoryEntry(DirEntry *, uint16 *longFileName);
 
 void printFatEntries(unsigned char *, int, int);
 
@@ -174,6 +174,12 @@ int fmsMask(char *mask, char *name, char *ext);
 
 void setDirTimeDate(DirEntry *dir);
 
+size_t utf8ToUtf16(char *inBuffer, uint16 *outBuffer, size_t outSize);
+
+size_t utf16ToUtf8(uint16 *inBuffer, char *outBuffer, size_t outSize);
+
+uint8 calcLfnChecksum(const uint8 name[8], const uint8 extension[3]);
+
 void dirEntryToStr(const uint8 name[8], const uint8 extension[3], char *fileName);
 
 void strToDirEntry(const char *fileName, uint8 name[8], uint8 extension[3]);
@@ -184,7 +190,7 @@ int fmsChangeDir(char *);
 
 int fmsGetDirEntry(char *, DirEntry *, int dir);
 
-int fmsGetNextFile(int *, char *, DirEntry *, int);
+int fmsGetNextFile(int *, char *, DirEntry *, int, uint16 *longFileName);
 
 int fmsGetFirstDirEntry(int dir, DirEnum *dirEnum, int skip);
 

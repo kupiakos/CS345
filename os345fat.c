@@ -52,7 +52,7 @@ int fmsWriteFile(int, const char *, int);
 //
 extern int fmsGetDirEntry(char *fileName, DirEntry *dirEntry, int dir);
 
-extern int fmsGetNextFile(int *entryNum, char *mask, DirEntry *dirEntry, int dir);
+extern int fmsGetNextFile(int *entryNum, char *mask, DirEntry *dirEntry, int dir, uint16 *longFileName);
 
 extern int fmsMount(char *fileName, void *ramDisk);
 
@@ -66,7 +66,7 @@ extern void setDirTimeDate(DirEntry *dir);
 
 extern int isValidFileName(char *fileName);
 
-extern void printDirectoryEntry(DirEntry *);
+extern void printDirectoryEntry(DirEntry *, uint16 *longFileName);
 
 extern void fmsError(int);
 
@@ -271,14 +271,14 @@ int fmsDeleteFile(char *fileName) {
 
     DirEntry entry;
     int entryNum = 0;
-    error = fmsGetNextFile(&entryNum, fileName, &entry, dir);
+    error = fmsGetNextFile(&entryNum, fileName, &entry, dir, NULL);
     --entryNum;
     if (error) return error;
 
     if (entry.attributes & DIRECTORY) {
         DirEntry childEntry;
         int childEntryNum = 0;
-        while ((error = fmsGetNextFile(&childEntryNum, "*.*", &childEntry, entry.startCluster)) == FATERR_SUCCESS) {
+        while ((error = fmsGetNextFile(&childEntryNum, "*.*", &childEntry, entry.startCluster, NULL)) == FATERR_SUCCESS) {
             if (childEntry.name[0] != '.') {
                 // Not an empty directory
                 return FATERR_CANNOT_DELETE;
@@ -332,7 +332,7 @@ int fmsOpenFile(char *fileName, int rwMode) {
     DirEntry dirEntry;
     int entryNum = 0;
     int dir = CDIR;
-    if ((err = fmsGetNextFile(&entryNum, fileName, &dirEntry, dir)) != 0) {
+    if ((err = fmsGetNextFile(&entryNum, fileName, &dirEntry, dir, NULL)) != 0) {
         if (err == FATERR_END_OF_DIRECTORY) {
             if (rwMode == OPEN_WRITE || rwMode == OPEN_RDWR) {
                 err = fmsDefineFile(fileName, ARCHIVE);

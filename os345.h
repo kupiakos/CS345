@@ -30,6 +30,7 @@
 // Obviously, don't use these with x and y that have side-effects.
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
+#define RCircShift(x) ((x) >> 1 | (((x) & 1) << (sizeof(x)*8-1)))
 
 // ***********************************************************************
 // Miscellaneous equates
