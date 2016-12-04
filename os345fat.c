@@ -262,7 +262,7 @@ int fmsDeleteFile(char *fileName) {
     }
 
     DirEntry entry;
-    int entryNum;
+    int entryNum = 0;
     error = fmsGetNextFile(&entryNum, fileName, &entry, dir);
     --entryNum;
     if (error) return error;
