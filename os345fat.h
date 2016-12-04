@@ -147,6 +147,15 @@ typedef struct {
     char error_msg[32];
 } FMSERROR;
 
+typedef struct {
+    DirEntry entry;
+    int entryNum;
+    int startCluster;
+    int currentCluster;
+    int clusterNum;
+    char buffer[BYTES_PER_SECTOR];
+} DirEnum;
+
 
 // ***************************************************************************************
 //	Prototypes
@@ -172,6 +181,10 @@ int fmsChangeDir(char *);
 int fmsGetDirEntry(char *, DirEntry *, int dir);
 
 int fmsGetNextFile(int *, char *, DirEntry *, int);
+
+int fmsGetFirstDirEntry(int dir, DirEnum *dirEnum, int skip);
+
+int fmsGetNextDirEntry(DirEnum *dirEnum, int skip);
 
 int fmsGetPathDir(const char *path, int startDir, int *resultDir, char *tail);
 

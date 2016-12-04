@@ -1671,6 +1671,54 @@ int fmsGetNextFile(int *entryNum, char *mask, DirEntry *dirEntry, int dir)
 } // end fmsGetNextFile
 
 
+int fmsGetFirstDirEntry(int dir, DirEnum *dirEnum, int skip) {
+    if (!dirEnum || skip < 0 || dir < 0)
+        return FATERR_UNDEFINED;
+    dirEnum->entryNum = -1;
+    dirEnum->startCluster = dir;
+    dirEnum->currentCluster = -1;
+    dirEnum->clusterNum = 0;
+    return fmsGetNextDirEntry(dirEnum, skip);
+}
+
+int fmsGetNextDirEntry(DirEnum *dirEnum, int skip) {
+    if (!dirEnum || skip < 0)
+        return FATERR_UNDEFINED;
+    int error;
+    int entryNum = dirEnum->entryNum + 1 + skip;
+    int skipSectors;
+
+    int cluster = dirEnum->currentCluster;
+    if (dirEnum->currentCluster < 0)
+        cluster = dirEnum->startCluster;
+    if (cluster == 0) {
+        // skipSectors must always ignore the number of clusters skipped if on the root
+        skipSectors = entryNum / ENTRIES_PER_SECTOR;
+    } else {
+        skipSectors = entryNum / ENTRIES_PER_SECTOR - dirEnum->clusterNum;
+    }
+    assert(skipSectors >= 0);
+    if (skipSectors || dirEnum->currentCluster < 0) {
+        int sector = -1;
+        error = getDirSector(cluster, skipSectors, &sector);
+        if (error) return error;
+        assert(sector >= 0);
+        error = fmsReadSector(dirEnum->buffer, sector);
+        if (error) return error;
+
+        if (cluster)
+            cluster = S_2_C(sector);
+        assert(cluster >= 0);
+        dirEnum->clusterNum += skipSectors;
+        dirEnum->currentCluster = cluster;
+    }
+    dirEnum->entryNum = entryNum;
+    memcpy(&dirEnum->entry,
+           (DirEntry *)dirEnum->buffer + (entryNum % ENTRIES_PER_SECTOR),
+           sizeof(DirEntry));
+    return FATERR_SUCCESS;
+}
+
 // Get the containing directory (as a cluster #) of a path.
 // If the path starts with \, start from the root.
 // Otherwise, return startDir the path only contains one non-root component.
