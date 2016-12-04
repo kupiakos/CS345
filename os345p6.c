@@ -21,7 +21,6 @@
 #include <ctype.h>
 #include <time.h>
 #include <assert.h>
-#include <iconv.h>
 #include "os345.h"
 #include "os345fat.h"
 

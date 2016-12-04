@@ -234,7 +234,7 @@ int fmsDefineFile(char *fileName, int attribute) {
             DirEntry childEntry;
             memset(childEntry.name, ' ', 8);
             memcpy(childEntry.name, name, strlen(name));
-            memset(childEntry.extension, ' ' ,3);
+            memset(childEntry.extension, ' ', 3);
             childEntry.attributes = DIRECTORY;
             setDirTimeDate(&childEntry);
             if (i == 0)
@@ -262,39 +262,48 @@ int fmsDefineFile(char *fileName, int attribute) {
 // clusters in FAT 1 reallocated (cleared to 0).
 // Return 0 for success; otherwise, return the error number.
 //
-int fmsDeleteFile(char *fileName) {
+int fmsDeleteFile(char *mask) {
     int dir = CDIR;
     int error;
-    if (isValidFileName(fileName) != 1) {
-        return FATERR_INVALID_FILE_NAME;
-    }
+//    if (isValidFileName(mask) != 1) {
+//        return FATERR_INVALID_FILE_NAME;
+//    }
+    bool any = false;
 
-    DirEntry entry;
-    int entryNum = 0;
-    error = fmsGetNextFile(&entryNum, fileName, &entry, dir, NULL);
-    --entryNum;
-    if (error) return error;
+    while (1) {
+        int entryNum = 0;
+        DirEntry entry;
+        error = fmsGetNextFile(&entryNum, mask, &entry, dir, NULL);
+        --entryNum;
+        if (error) {
+            if (!any || error != FATERR_END_OF_DIRECTORY)
+                return error;
+            return FATERR_SUCCESS;
+        }
+        any = true;
 
-    if (entry.attributes & DIRECTORY) {
-        DirEntry childEntry;
-        int childEntryNum = 0;
-        while ((error = fmsGetNextFile(&childEntryNum, "*.*", &childEntry, entry.startCluster, NULL)) == FATERR_SUCCESS) {
-            if (childEntry.name[0] != '.') {
-                // Not an empty directory
-                return FATERR_CANNOT_DELETE;
+        if (entry.attributes & DIRECTORY) {
+            DirEntry childEntry;
+            int childEntryNum = 0;
+            while ((error = fmsGetNextFile(&childEntryNum, "*.*", &childEntry, entry.startCluster, NULL)) ==
+                   FATERR_SUCCESS) {
+                if (childEntry.name[0] != '.') {
+                    // Not an empty directory
+                    return FATERR_CANNOT_DELETE;
+                }
+            }
+            if (error != FATERR_END_OF_DIRECTORY) {
+                return error;
             }
         }
-        if (error != FATERR_END_OF_DIRECTORY) {
-            return error;
-        }
+
+        entry.name[0] = 0xe5;
+        error = fmsWriteDirEntry(dir, entryNum, &entry);
+        if (error) return error;
+
+        clearFATChain(entry.startCluster, FAT1);
+        clearFATChain(entry.startCluster, FAT2);
     }
-
-    entry.name[0] = 0xe5;
-    error = fmsWriteDirEntry(dir, entryNum, &entry);
-    if (error) return error;
-
-    clearFATChain(entry.startCluster, FAT1);
-    clearFATChain(entry.startCluster, FAT2);
 
     return FATERR_SUCCESS;
 } // end fmsDeleteFile
