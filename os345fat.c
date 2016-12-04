@@ -383,7 +383,8 @@ int fmsOpenFile(char *fileName, int rwMode) {
         setDirTimeDate(&dirEntry);
         dirEntry.attributes |= ARCHIVE;
 
-        fmsWriteDirEntry(dir, entryNum, &dirEntry);
+        err = fmsWriteDirEntry(dir, entryNum, &dirEntry);
+        if (err) return err;
     }
 
     // Copy data from dirEntry into fdEntry
@@ -403,7 +404,8 @@ int fmsOpenFile(char *fileName, int rwMode) {
     memset(fdEntry->buffer, 0, sizeof(fdEntry->buffer));
 
     if (rwMode == OPEN_APPEND) {
-        fmsSeekFile(newFd, fdEntry->fileSize);
+        err = fmsSeekFile(newFd, fdEntry->fileSize);
+        if (err < 0) return err;
     }
 
     return newFd;
@@ -590,11 +592,15 @@ int fmsSeekFile(int fileDescriptor, int index) {
     }
     int error;
     FDEntry *fdEntry = &OFTable[fileDescriptor];
-    if (fdEntry->name[0] == 0) return FATERR_FILE_NOT_OPEN;
+    if (fdEntry->name[0] == 0)
+        return FATERR_FILE_NOT_OPEN;
 
     // wtf: Why can't you seek if you're writing? Makes no sense.
     if (fdEntry->mode != OPEN_READ && fdEntry->mode != OPEN_RDWR) {
-        return FATERR_FILE_SEEK_ERROR;
+        if (fdEntry->mode != OPEN_APPEND || fdEntry->currentCluster != 0) {
+            // The initial seek for an append still needs to be done.
+            return FATERR_FILE_SEEK_ERROR;
+        }
     }
     // The index for the end of the file is fileSize.
     // Index 0 is the beginning of the file.
