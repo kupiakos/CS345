@@ -622,7 +622,7 @@ int fmsSeekFile(int fileDescriptor, int index) {
     }
 
     // # of sectors left to traverse through past the start cluster
-    int sectorsLeft = index / BYTES_PER_SECTOR;
+    int sectorsLeft = (index - 1) / BYTES_PER_SECTOR;
     int cluster = fdEntry->startCluster;
     while (sectorsLeft--) {
         cluster = getFatEntry(cluster, FAT1);
