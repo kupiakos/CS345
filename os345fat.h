@@ -174,9 +174,7 @@ int fmsMask(char *mask, char *name, char *ext);
 
 void setDirTimeDate(DirEntry *dir);
 
-size_t utf8ToUtf16(char *inBuffer, uint16 *outBuffer, size_t outSize);
-
-size_t utf16ToUtf8(uint16 *inBuffer, char *outBuffer, size_t outSize);
+void lfnToBuffer(uint16 *inBuffer, char *outBuffer, size_t outSize);
 
 uint8 calcLfnChecksum(const uint8 name[8], const uint8 extension[3]);
 

@@ -620,7 +620,7 @@ void printDirectoryEntry(DirEntry *dirEntry, uint16 *longFileName) {
         dirEntryToStr(dirEntry->name, dirEntry->extension, name);
     } else {
         // Copy long file name as UTF-8
-        utf16ToUtf8(longFileName, name, sizeof(name));
+        lfnToBuffer(longFileName, name, sizeof(name));
     }
 
     // Generate the attributes
@@ -1508,28 +1508,11 @@ void setDirTimeDate(DirEntry *dir) {
     return;
 } // end setDirTimeDate
 
-size_t utf8ToUtf16(char *inBuffer, uint16 *outBuffer, size_t outSize) {
-    iconv_t utf8_to_utf16 = iconv_open("UTF-16LE", "UTF-8");
-    size_t inLeft = strlen(inBuffer);
-    size_t result = iconv(utf8_to_utf16,
-                          &inBuffer, &inLeft,
-                          (char **) &outBuffer, &outSize
-    );
-    iconv_close(utf8_to_utf16);
-    return result;
-}
-
-size_t utf16ToUtf8(uint16 *inBuffer, char *outBuffer, size_t outSize) {
-    iconv_t utf16_to_utf8 = iconv_open("UTF-8", "UTF-16LE");
-    size_t inLeft;
-    for (inLeft = 0; inBuffer[inLeft]; ++inLeft);
-    inLeft *= 2; // Adjust to 2-byte characters
-    size_t result = iconv(utf16_to_utf8,
-                          (char **)&inBuffer, &inLeft,
-                          &outBuffer, &outSize
-    );
-    iconv_close(utf16_to_utf8);
-    return result;
+void lfnToBuffer(uint16 *inBuffer, char *outBuffer, size_t outSize) {
+    while (outSize-- > 0) {
+        if (!(*outBuffer++ = (char) *inBuffer++))
+            break;
+    }
 }
 
 uint8 calcLfnChecksum(const uint8 name[8], const uint8 extension[3]) {
@@ -1762,7 +1745,7 @@ int fmsGetNextFile(int *entryNum, char *mask, DirEntry *dirEntry, int dir, uint1
                 bool matches = false;
                 if (lfnConstructed) {
                     assert(longFileName);
-                    utf16ToUtf8(longFileName, lfnMask, sizeof(lfnMask));
+                    lfnToBuffer(longFileName, lfnMask, sizeof(lfnMask));
                     matches = strcasecmp(lfnMask, mask) == 0;
                 }
                 if (!matches)
