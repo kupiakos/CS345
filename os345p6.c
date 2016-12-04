@@ -910,7 +910,7 @@ extern int P6_dir(int, char **);            // list current directory
 
 int P6_finalTest(int argc, char *argv[]) {
     int i, flags = 0;
-    bool finalDebug = true;
+    bool finalDebug = false;
 
     if (!diskMounted) {
         fmsError(FATERR_DISK_NOT_MOUNTED);
