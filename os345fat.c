@@ -268,7 +268,17 @@ int fmsDeleteFile(char *fileName) {
     if (error) return error;
 
     if (entry.attributes & DIRECTORY) {
-        return FATERR_CANNOT_DELETE;
+        DirEntry childEntry;
+        int childEntryNum = 0;
+        while ((error = fmsGetNextFile(&childEntryNum, fileName, &childEntry, dir)) != FATERR_SUCCESS) {
+            if (childEntry.name[0] != '.') {
+                // Not an empty directory
+                return FATERR_CANNOT_DELETE;
+            }
+        }
+        if (error != FATERR_END_OF_DIRECTORY) {
+            return error;
+        }
     }
 
     entry.name[0] = 0xe5;
