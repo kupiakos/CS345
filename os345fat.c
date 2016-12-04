@@ -360,7 +360,10 @@ int fmsOpenFile(char *fileName, int rwMode) {
         if (checkEntry->name[0] == 0) {
             newFd = checkFd;
         } else if (checkEntry->startCluster == dirEntry.startCluster) {
-            return FATERR_FILE_ALREADY_OPEN;
+            // Obviously, you can have multiple empty files open at a time
+            if (checkEntry->startCluster != 0) {
+                return FATERR_FILE_ALREADY_OPEN;
+            }
         }
     }
     if (newFd == -1) {
