@@ -174,6 +174,10 @@ int fmsMask(char *mask, char *name, char *ext);
 
 void setDirTimeDate(DirEntry *dir);
 
+void dirEntryToStr(const uint8 name[8], const uint8 extension[3], char *fileName);
+
+void strToDirEntry(const char *fileName, uint8 name[8], uint8 extension[3]);
+
 int isValidFileName(char *fileName);
 
 int fmsChangeDir(char *);

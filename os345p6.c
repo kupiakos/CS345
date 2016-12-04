@@ -1512,6 +1512,33 @@ void setDirTimeDate(DirEntry *dir) {
 } // end setDirTimeDate
 
 
+void dirEntryToStr(const uint8 name[8], const uint8 extension[3], char *fileName) {
+    uint8 *c = memchr(name, ' ', 8);
+    size_t nameLen = c ? c - name : 8;
+    memcpy(fileName, name, nameLen);
+    c = memchr(extension, ' ', 3);
+    if (!c) {
+        fileName[nameLen] = '\0';
+    } else {
+        fileName[nameLen] = '.';
+        memcpy(fileName + nameLen + 1, extension, c - extension);
+    }
+}
+
+void strToDirEntry(const char *fileName, uint8 name[8], uint8 extension[3]) {
+    memset(name, ' ', 8);
+    memset(extension, ' ', 3);
+    // Copy the short file name in
+    char *c = strchr(fileName, '.');
+    if (c) {
+        memcpy(name, fileName, c - fileName);
+        memcpy(extension, c + 1, strchr(c, '\0') - c - 1);
+    } else {
+        // no extension
+        memcpy(name, fileName, strlen(fileName));
+    }
+}
+
 
 // ***************************************************************************************
 // ***************************************************************************************

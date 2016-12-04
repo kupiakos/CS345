@@ -194,17 +194,7 @@ int fmsDefineFile(char *fileName, int attribute) {
     }
 
     // Now that we have a directory entry for our new file, create the file itself
-    memset(entry.name, ' ', 8);
-    memset(entry.extension, ' ', 3);
-    // Copy the short file name in
-    char *c = strchr(fileName, '.');
-    if (c) {
-        memcpy(entry.name, fileName, c - fileName);
-        memcpy(entry.extension, c + 1, strchr(c, '\0') - c - 1);
-    } else {
-        // no extension
-        memcpy(entry.name, fileName, strlen(fileName));
-    }
+    strToDirEntry(fileName, entry.name, entry.extension);
 
     entry.attributes = (uint8) attribute;
     setDirTimeDate(&entry);
