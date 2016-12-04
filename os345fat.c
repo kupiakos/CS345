@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include <ctype.h>
 #include "os345.h"
 #include "os345fat.h"
 
@@ -137,6 +138,13 @@ int fmsDefineFile(char *fileName, int attribute) {
     if (isValidFileName(fileName) != 1) {
         return FATERR_INVALID_FILE_NAME;
     }
+
+    char fileNameBuf[strlen(fileName) + 1];
+    size_t fileNameSize = strlen(fileName);
+    for (int i = 0; i < fileNameSize; ++i)
+        fileNameBuf[i] = (char) toupper(fileName[i]);
+    fileNameBuf[fileNameSize] = 0;
+    fileName = fileNameBuf;
 
     DirEntry entry;
     error = fmsGetDirEntry(fileName, &entry, dir);
