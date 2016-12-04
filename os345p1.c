@@ -518,6 +518,7 @@ Command **P1_init() {
     commands[i++] = newCommand("define", "df", P6_define, "Define file");
     commands[i++] = newCommand("delete", "del", P6_del, "Delete file");
     commands[i++] = newCommand("rename", "ren", P6_rename, "Rename file");
+    commands[i++] = newCommand("undelete", "undel", P6_undelete, "Undelete file");
     commands[i++] = newCommand("directory", "dir", P6_dir, "List current directory");
     commands[i++] = newCommand("mount", "md", P6_mount, "Mount disk");
     commands[i++] = newCommand("mkdir", "mk", P6_mkdir, "Create directory");

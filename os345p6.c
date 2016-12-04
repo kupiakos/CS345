@@ -186,9 +186,11 @@ int P6_dir(int argc, char *argv[])        // list directory
             if (error != FATERR_END_OF_DIRECTORY) fmsError(error);
             break;
         }
+        printf("\n");
         printDirectoryEntry(&dirEntry, longFileName);
         SWAP;
     }
+    printf("\n");
     //dumpRAMDisk("Root Directory", 19*512, 20*512);
     return 0;
 } // end P6_dir
@@ -521,6 +523,66 @@ int P6_rename(int argc, char *argv[])                // delete file
     return 0;
 }
 
+int P6_undelete(int argc, char *argv[])                // delete file
+{
+    int error;
+
+    if (!diskMounted) {
+        fmsError(FATERR_DISK_NOT_MOUNTED);
+        return 0;
+    }
+    if (argc < 2) {
+        DirEnum dirEnum;
+        error = fmsGetFirstDirEntry(CDIR, &dirEnum, 0);
+        if (error) return error;
+        printf("\nFiles available to be undeleted in this directory:");
+        printf("\n###  Name:ext                     time      date    cluster  size");
+        do {
+            if (fmsCanUndeleteEntry(&dirEnum.entry)) {
+                dirEnum.entry.name[0] = '?';
+                printf("\n%-3d  ", dirEnum.entryNum);
+                printDirectoryEntry(&dirEnum.entry, NULL);
+            }
+            error = fmsGetNextDirEntry(&dirEnum, 0);
+        } while (error == FATERR_SUCCESS);
+        printf("\nTo undelete, run undelete <###> <name>");
+        if (error == FATERR_END_OF_DIRECTORY)
+            return FATERR_SUCCESS;
+        return error;
+    }
+    if (argc == 2) {
+        printf("\nTo undelete, run undelete <###> <name>");
+        return 0;
+    }
+
+    int entryNum = INTEGER(argv[1]);
+    if (!entryNum)
+        return FATERR_INVALID_SECTOR;
+    if (isValidFileName(argv[2]) != 1)
+        return FATERR_INVALID_FILE_NAME;
+
+    DirEntry entry;
+    error = fmsReadDirEntry(CDIR, entryNum, &entry);
+    if (error) return error;
+    if (!fmsCanUndeleteEntry(&entry))
+        return FATERR_UNDEFINED;
+    printf("Undelete:\n");
+    printf("\n%-3d  ", entryNum);
+    printDirectoryEntry(&entry, NULL);
+    strToDirEntry(argv[2], entry.name, entry.extension);
+    printf("\nto:");
+    printf("\n%-3d  ", entryNum);
+    printDirectoryEntry(&entry, NULL);
+
+    error = fmsWriteDirEntry(CDIR, entryNum, &entry);
+    if (error) return error;
+
+    // Reclaim the FAT entry
+    setFatEntry(entry.startCluster, FAT_EOC, FAT1);
+    setFatEntry(entry.startCluster, FAT_EOC, FAT2);
+
+    return 0;
+}
 
 // ***********************************************************************
 // ***********************************************************************
@@ -646,7 +708,7 @@ void printDirectoryEntry(DirEntry *dirEntry, uint16 *longFileName) {
             attr_info[i] = attr_letters[i];
     }
 
-    printf("\n%-20s %s  %02u:%02u:%02u %02u/%02u/%04u %5u %5u",
+    printf("%-20s %s  %02u:%02u:%02u %02u/%02u/%04u %5u %5u",
            name, attr_info,
            time.hour, time.min, time.sec * 2,
            date.month + 1, date.day, date.year + 1980,
@@ -1629,7 +1691,14 @@ int isValidFileName(char *fileName) {
     return -1;
 } // end isValidFileName
 
-
+int fmsCanUndeleteEntry(DirEntry *entry) {
+    return (entry->name[0] == 0xe5 &&
+            entry->attributes != LONGNAME &&
+            !(entry->attributes & DIRECTORY) &&
+            entry->fileSize < SECTORS_PER_DISK &&
+            entry->startCluster >= 2 &&
+            getFatEntry(entry->startCluster, FAT1) == 0);
+}
 
 // ***************************************************************************************
 // ***************************************************************************************

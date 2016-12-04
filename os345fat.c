@@ -279,7 +279,6 @@ int fmsRenameFile(char *fromName, char *toName) {
     return error;
 }
 
-
 // ***********************************************************************
 // ***********************************************************************
 // This function deletes the file fileName from the current director.

@@ -184,6 +184,8 @@ void strToDirEntry(const char *fileName, uint8 name[8], uint8 extension[3]);
 
 int isValidFileName(char *fileName);
 
+int fmsCanUndeleteEntry(DirEntry *entry);
+
 int fmsChangeDir(char *);
 
 int fmsGetDirEntry(char *, DirEntry *, int dir);
