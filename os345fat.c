@@ -34,6 +34,8 @@ int fmsCloseFile(int);
 
 int fmsDefineFile(char *, int);
 
+int fmsRenameFile(char *fromName, char *toName);
+
 int fmsDeleteFile(char *);
 
 int fmsOpenFile(char *, int);
@@ -253,6 +255,29 @@ int fmsDefineFile(char *fileName, int attribute) {
     return FATERR_SUCCESS;
 } // end fmsDefineFile
 
+
+int fmsRenameFile(char *fromName, char *toName) {
+    int dir = CDIR;
+    int error;
+
+    if (isValidFileName(toName) != 1)
+        return FATERR_INVALID_FILE_NAME;
+
+
+    int entryNum = 0;
+    DirEntry entry;
+    error = fmsGetNextFile(&entryNum, fromName, &entry, dir, NULL);
+    --entryNum;
+    if (error) return error;
+
+    if (entry.name[0] == '.')
+        return FATERR_INVALID_FILE_NAME;
+
+    strToDirEntry(toName, entry.name, entry.extension);
+
+    error = fmsWriteDirEntry(dir, entryNum, &entry);
+    return error;
+}
 
 
 // ***********************************************************************

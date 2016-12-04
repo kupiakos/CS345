@@ -177,7 +177,7 @@ int P6_dir(int argc, char *argv[])        // list directory
     }
 
     //dumpRAMDisk("Root Directory", 19*512, 19*512+256);
-    printf("\nName:ext                time      date    cluster  size");
+    printf("\nName:ext                     time      date    cluster  size");
     uint16 longFileName[256];
     longFileName[255] = 0;
     while (1) {
@@ -493,7 +493,7 @@ int P6_del(int argc, char *argv[])                // delete file
         return 0;
     }
     if (argc < 2) {
-        printf("\n  DL <fileName>");
+        printf("\n  DEL <fileName>");
         return 0;
     }
     if ((error = fmsDeleteFile(argv[1])) < 0) {
@@ -502,6 +502,24 @@ int P6_del(int argc, char *argv[])                // delete file
     return 0;
 } // end P6_del
 
+
+int P6_rename(int argc, char *argv[])                // delete file
+{
+    int error;
+
+    if (!diskMounted) {
+        fmsError(FATERR_DISK_NOT_MOUNTED);
+        return 0;
+    }
+    if (argc < 3) {
+        printf("\n  REN <fromName> <toName>");
+        return 0;
+    }
+    if ((error = fmsRenameFile(argv[1], argv[2])) < 0) {
+        fmsError(error);
+    }
+    return 0;
+}
 
 
 // ***********************************************************************
@@ -1553,6 +1571,12 @@ void strToDirEntry(const char *fileName, uint8 name[8], uint8 extension[3]) {
     } else {
         // no extension
         memcpy(name, fileName, strlen(fileName));
+    }
+    for (int i = 0; i < 8; ++i) {
+        name[i] = (uint8) toupper(name[i]);
+    }
+    for (int i = 0; i < 3; ++i) {
+        extension[i] = (uint8) toupper(extension[i]);
     }
 }
 

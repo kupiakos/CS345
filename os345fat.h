@@ -202,6 +202,8 @@ int fmsDefineFile(char *, int);
 
 int fmsDeleteFile(char *);
 
+int fmsRenameFile(char *, char *);
+
 int fmsOpenFile(char *, int);
 
 int fmsReadFile(int, char *, int);
