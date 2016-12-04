@@ -270,7 +270,7 @@ int fmsDeleteFile(char *fileName) {
     if (entry.attributes & DIRECTORY) {
         DirEntry childEntry;
         int childEntryNum = 0;
-        while ((error = fmsGetNextFile(&childEntryNum, fileName, &childEntry, dir)) != FATERR_SUCCESS) {
+        while ((error = fmsGetNextFile(&childEntryNum, "*.*", &childEntry, entry.startCluster)) == FATERR_SUCCESS) {
             if (childEntry.name[0] != '.') {
                 // Not an empty directory
                 return FATERR_CANNOT_DELETE;
