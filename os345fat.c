@@ -359,11 +359,10 @@ int fmsOpenFile(char *fileName, int rwMode) {
 
         if (checkEntry->name[0] == 0) {
             newFd = checkFd;
-        } else if (checkEntry->startCluster == dirEntry.startCluster) {
-            // Obviously, you can have multiple empty files open at a time
-            if (checkEntry->startCluster != 0) {
-                return FATERR_FILE_ALREADY_OPEN;
-            }
+        } else if (checkEntry->directoryCluster == dir &&
+                   strncasecmp((char *) checkEntry->name, (char *) dirEntry.name, 8)  &&
+                   strncasecmp((char *) checkEntry->extension, (char *) dirEntry.extension, 3)) {
+            return FATERR_FILE_ALREADY_OPEN;
         }
     }
     if (newFd == -1) {
