@@ -19,7 +19,7 @@
 //#define ParkDebug(s) printf("\n%s: %s", TASK_NAME, s);
 #define ParkDebug(s) printf("\n%s: %s", "TASK_NAME", s);
 //#define ParkDebug(s) SWAP;
-#define CLEAR_SCREEN    //system("cls");
+#define CLEAR_SCREEN    printf("\e[1;1H\e[2J")
 
 // ***********************************************************************
 // jurassic structs
