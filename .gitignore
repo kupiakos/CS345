@@ -89,7 +89,6 @@ fabric.properties
 
 CMakeCache.txt
 CMakeFiles/
-CMakeLists.txt
 Makefile
 Shell
 cmake_install.cmake
