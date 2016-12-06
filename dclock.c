@@ -71,6 +71,7 @@ void insertDClock(DClock clock, int delta, Semaphore *event) {
     next = &clock->events;
     // Find what event we belong after
     while (*next && delta - (*next)->delta > 0) {
+        assert((*next)->delta >= 0);
         delta -= (*next)->delta;
         next = &(*next)->next;
     }
@@ -121,4 +122,6 @@ void delDClock(DClock *clock) {
     (*clock)->events = NULL;
     free((*clock)->name);
     deleteSemaphore(&(*clock)->mutex);
+    (*clock)->mutex = NULL;
+    free(clock);
 }
