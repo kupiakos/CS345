@@ -37,12 +37,27 @@ extern Semaphore *seatFilled[NUM_CARS];        // (wait) passenger seated
 extern Semaphore *rideOver[NUM_CARS];            // (signal) ride over
 
 static DClock dClock;
+static Semaphore *canReceivePassenger;
+static Semaphore *passengerGotInCar;
+
+
+// Inter-process communication
+static void *eventData;
+static Semaphore *eventDataCanBeSet;
+static Semaphore *eventDataReady;
+static Semaphore *eventDataReceived;
+static Semaphore *eventThatWasSent;
+
+static void passEventData(void *data, Semaphore *event);
+static void *receiveEventData(Semaphore *event);
 
 // ***********************************************************************
 // project 3 functions and tasks
 void CL3_project3(int, char **);
 
 void CL3_dc(int, char **);
+
+static int carTask(int argc, char *argv[]);
 
 
 // ***********************************************************************
@@ -80,6 +95,55 @@ int P3_dc(int argc, char *argv[]) {
     return 0;
 } // end CL3_dc
 
+static int carTask(int argc, char *argv[]) {
+    assert(argc == 2);
+    int carId = atoi(argv[1]);
+
+    while (1) {
+
+    }
+
+    return 0;
+}
+
+void passEventData(void *data, Semaphore *event) {
+    SEM_WAIT(eventDataCanBeSet);
+    SWAP;
+    eventData = data;
+    SWAP;
+    eventThatWasSent = event;
+    SWAP;
+    SEM_SIGNAL(eventDataReady);
+    SWAP;
+    SEM_SIGNAL(event);
+    SWAP;
+    SEM_WAIT(eventDataReceived);
+    SWAP;
+    SEM_SIGNAL(eventDataCanBeSet);
+    SWAP;
+}
+
+void *receiveEventData(Semaphore *event) {
+    SEM_WAIT(event);
+    SWAP;
+
+    while (1) {
+        SEM_WAIT(eventDataReady);
+        SWAP;
+        if (eventThatWasSent != event) {
+            SEM_SIGNAL(eventDataReady);
+            SWAP;
+        } else {
+            SWAP;
+            break;
+        }
+    }
+    void *data = eventData;
+    SWAP;
+    SEM_SIGNAL(eventDataReceived);
+    SWAP;
+    return data;
+}
 
 /*
 // ***********************************************************************
