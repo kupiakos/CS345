@@ -92,4 +92,5 @@ CMakeFiles/
 Makefile
 Shell
 cmake_install.cmake
+*.cbp
 
