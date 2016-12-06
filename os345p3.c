@@ -17,10 +17,6 @@
 // ***********************************************************************
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
-#include <setjmp.h>
-#include <time.h>
 #include <assert.h>
 #include "os345.h"
 #include "os345park.h"
@@ -28,6 +24,24 @@
 
 // ***********************************************************************
 // project 3 variables
+
+// Represents a "pipe" signaling something going in and out.
+// to receive, signal `from`, then wait for `to`
+// to send, wait for `from`, then signal `to`
+typedef struct {
+    // signalled when something can start going through the pipe
+    Semaphore *from;
+    // signalled when the thing has gone through the pipe
+    Semaphore *to;
+} SemaphorePipe;
+
+typedef struct {
+    int id;
+    Semaphore *event;
+} *SemaphoreAndId;
+
+#define SEM_RECEIVE(pair) do { SEM_SIGNAL((pair).from); SWAP; SEM_WAIT((pair).to); SWAP; } while (0)
+#define PARK_STATE(statement) do { SEM_WAIT(parkMutex); SWAP; statement; SWAP; SEM_SIGNAL(parkMutex); SWAP; } while (0)
 
 // Jurassic Park
 extern JPARK myPark;
@@ -37,8 +51,8 @@ extern Semaphore *seatFilled[NUM_CARS];        // (wait) passenger seated
 extern Semaphore *rideOver[NUM_CARS];            // (signal) ride over
 
 static DClock dClock;
-static Semaphore *canReceivePassenger;
-static Semaphore *passengerGotInCar;
+static SemaphorePipe passengerToCar;
+static SemaphorePipe driverToCar;
 
 
 // Inter-process communication
@@ -49,7 +63,12 @@ static Semaphore *eventDataReceived;
 static Semaphore *eventThatWasSent;
 
 static void passEventData(void *data, Semaphore *event);
+
 static void *receiveEventData(Semaphore *event);
+
+static void *sendIntoPipeWithData(SemaphorePipe *pair, void *data);
+
+static void *receiveFromPipeWithData(SemaphorePipe *pair);
 
 // ***********************************************************************
 // project 3 functions and tasks
@@ -98,10 +117,54 @@ int P3_dc(int argc, char *argv[]) {
 static int carTask(int argc, char *argv[]) {
     assert(argc == 2);
     int carId = atoi(argv[1]);
+    Semaphore *passengerFinishedEvent[NUM_SEATS];
+    Semaphore *driverFinishedEvent;
 
-    while (1) {
+    do {
+        for (int i = 0; i < NUM_SEATS; ++i) {
+            // Wait for a seat that is ready to be filled
+            SEM_WAIT(fillSeat[carId]);
+            SWAP;
 
-    }
+            // Receive a visitor and get the semaphore to signal when we're done
+            passengerFinishedEvent[i] = receiveFromPipeWithData(&passengerToCar);
+            SWAP;
+
+            // Tell the park that a visitor's now in this seat
+            SEM_SIGNAL(seatFilled[carId]);
+            SWAP;
+        }
+
+        // Get an available driver
+        SemaphoreAndId driverData = receiveFromPipeWithData(&driverToCar);
+        SWAP;
+        PARK_STATE(myPark.drivers[driverData->id] = carId + 1);
+        SWAP;
+        driverFinishedEvent = driverData->event;
+        SWAP;
+        free(driverData);
+        SWAP;
+
+        // Wait until the ride has finished
+        SEM_WAIT(rideOver[carId]);
+        SWAP;
+
+        // Let the driver continue with their life
+        assert(driverFinishedEvent);
+        SEM_SIGNAL(driverFinishedEvent);
+        SWAP;
+        driverFinishedEvent = NULL;
+        SWAP;
+
+        // Don't keep the passengers prisoner
+        for (int i = 0; i < NUM_SEATS; ++i) {
+            assert(passengerFinishedEvent[i]);
+            SEM_SIGNAL(passengerFinishedEvent[i]);
+            SWAP;
+            passengerFinishedEvent[i] = NULL;
+            SWAP;
+        }
+    } while (myPark.numExitedPark < NUM_VISITORS);
 
     return 0;
 }
@@ -143,6 +206,12 @@ void *receiveEventData(Semaphore *event) {
     SEM_SIGNAL(eventDataReceived);
     SWAP;
     return data;
+}
+
+void *receiveFromPipeWithData(SemaphorePipe *pair) {
+    SEM_SIGNAL(pair->from);
+    SWAP;
+    return receiveEventData(pair->to);
 }
 
 /*
