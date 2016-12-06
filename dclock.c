@@ -4,6 +4,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include <assert.h>
 #include "dclock.h"
 
@@ -18,7 +19,7 @@ typedef struct s_DClockEvent {
 struct s_DClock {
     char *name;
     Semaphore *mutex;
-    struct s_DClockEvent *events;
+    DClockEvent events;
 };
 
 static void tickDClock_safe(DClock clock, int ticks);
@@ -90,6 +91,21 @@ void insertDClock(DClock clock, int delta, Semaphore *event) {
         }
     }
 
+    SEM_SIGNAL(clock->mutex);
+}
+
+void printDClock(DClock clock, bool showAbsolute) {
+    assert(clock);
+    SEM_WAIT(clock->mutex);
+    printf("\nDelta Clock %s:\n", clock->name);
+    int delta = 0;
+    for (DClockEvent e = clock->events; e; e = e->next) {
+        if (!showAbsolute) {
+            delta = 0;
+        }
+        delta += e->delta;
+        printf("%03d - %s\n", e->delta, e->event->name);
+    }
     SEM_SIGNAL(clock->mutex);
 }
 
