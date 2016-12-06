@@ -69,6 +69,7 @@ void insertDClock(DClock clock, int delta, Semaphore *event) {
 
     DClockEvent *next;
     next = &clock->events;
+    // Find what event we belong after
     while (*next && delta - (*next)->delta > 0) {
         delta -= (*next)->delta;
         next = &(*next)->next;

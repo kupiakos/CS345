@@ -24,6 +24,7 @@
 #include <assert.h>
 #include "os345.h"
 #include "os345park.h"
+#include "dclock.h"
 
 // ***********************************************************************
 // project 3 variables
@@ -35,6 +36,7 @@ extern Semaphore *fillSeat[NUM_CARS];            // (signal) seat ready to fill
 extern Semaphore *seatFilled[NUM_CARS];        // (wait) passenger seated
 extern Semaphore *rideOver[NUM_CARS];            // (signal) ride over
 
+static DClock dClock;
 
 // ***********************************************************************
 // project 3 functions and tasks
@@ -62,7 +64,7 @@ int P3_project3(int argc, char *argv[]) {
     // wait for park to get initialized...
     while (!parkMutex) SWAP;
     printf("\nStart Jurassic Park...");
-
+    dClock = initDClock("Jurassic");
     //?? create car, driver, and visitor tasks here
 
     return 0;
@@ -74,9 +76,7 @@ int P3_project3(int argc, char *argv[]) {
 // ***********************************************************************
 // delta clock command
 int P3_dc(int argc, char *argv[]) {
-    printf("\nDelta Clock");
-    // ?? Implement a routine to display the current delta clock contents
-    printf("\nTo Be Implemented!");
+    printDClock(dClock, argc > 1);
     return 0;
 } // end CL3_dc
 
