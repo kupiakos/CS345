@@ -123,5 +123,6 @@ void delDClock(DClock *clock) {
     free((*clock)->name);
     deleteSemaphore(&(*clock)->mutex);
     (*clock)->mutex = NULL;
-    free(clock);
+    free(*clock);
+    *clock = NULL;
 }
