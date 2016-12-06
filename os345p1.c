@@ -280,7 +280,7 @@ int P1_shellTask(int argc, char *argv[]) {
         if (!inBuffer[0]) continue;        // ignore blank lines
         // printf("%s", inBuffer);
 
-        SWAP                                        // do context switch
+        SWAP;                                        // do context switch
 
         // ?? vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
         // ?? parse command line into argc, argv[] variables
@@ -430,7 +430,7 @@ int P1_help(int argc, char *argv[]) {
 
     // list commands
     for (i = 0; i < NUM_COMMANDS; i++) {
-        SWAP                                        // do context switch
+        SWAP;                                        // do context switch
         if (strstr(commands[i]->description, ":")) printf("\n");
         printf("\n%4s: %s", commands[i]->shortcut, commands[i]->description);
     }

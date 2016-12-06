@@ -258,7 +258,7 @@ int lc3Task(int argc, char *argv[]) {
                                                      (char *) getMemAdr(LC3_REGS[1], 0),
                                                      (DirEntry *) getMemAdr(LC3_REGS[2], 1), (short int) LC3_REGS[3],
                                                      NULL);               // int cDir
-                        SWAP
+                        SWAP;
                         break;
                     }
 
@@ -268,7 +268,7 @@ int lc3Task(int argc, char *argv[]) {
                         // OUT:  R0 = 0-success, otherwise error
                         if (LC3_DEBUG & 0x01) printf(TRAP_MSG, oldpc, "fmsCloseFile");
                         LC3_REGS[0] = fmsCloseFile((short int) LC3_REGS[0]);       // int fileDescriptor
-                        SWAP
+                        SWAP;;
                         break;
                     }
 
@@ -283,7 +283,7 @@ int lc3Task(int argc, char *argv[]) {
                         while ((fileName[i++] = s[j])) j += 2;
                         if (LC3_DEBUG & 0x01) printf(TRAP_MSG, oldpc, "fmsCreateFile");
                         LC3_REGS[0] = fmsDefineFile(fileName, 0);   // char* fileName
-                        SWAP
+                        SWAP;
                         break;
                     }
 
@@ -298,7 +298,7 @@ int lc3Task(int argc, char *argv[]) {
                         while ((fileName[i++] = s[j])) j += 2;
                         if (LC3_DEBUG & 0x01) printf(TRAP_MSG, oldpc, "fmsDeleteFile");
                         LC3_REGS[0] = fmsDeleteFile(fileName);       // char* fileName
-                        SWAP
+                        SWAP;
                         break;
                     }
 
@@ -315,7 +315,7 @@ int lc3Task(int argc, char *argv[]) {
                         if (LC3_DEBUG & 0x01) printf(TRAP_MSG, oldpc, "fmsOpenFile");
                         LC3_REGS[0] = fmsOpenFile(fileName,               // char* fileName
                                                   (short int) LC3_REGS[1]); // int rwMode
-                        SWAP
+                        SWAP;
                         break;
                     }
 
@@ -329,7 +329,7 @@ int lc3Task(int argc, char *argv[]) {
                         LC3_REGS[0] = fmsReadFile((short int) LC3_REGS[0],              // int fileDescriptor
                                                   (char *) getMemAdr(LC3_REGS[1], 0),    // char* buffer
                                                   (short int) LC3_REGS[2]);             // int nBytes
-                        SWAP
+                        SWAP;
                         break;
                     }
 
@@ -341,7 +341,7 @@ int lc3Task(int argc, char *argv[]) {
                         if (LC3_DEBUG & 0x01) printf(TRAP_MSG, oldpc, "fmsSeekFile");
                         LC3_REGS[0] = fmsSeekFile((short int) LC3_REGS[0],              // int fileDescriptor
                                                   (short int) LC3_REGS[1]);             // int index
-                        SWAP
+                        SWAP;
                         break;
                     }
 
@@ -355,7 +355,7 @@ int lc3Task(int argc, char *argv[]) {
                         LC3_REGS[0] = fmsWriteFile((short int) LC3_REGS[0],              // int fileDescriptor
                                                    (char *) getMemAdr(LC3_REGS[1], 0),    // char* buffer
                                                    (short int) LC3_REGS[2]);             // int nBytes
-                        SWAP
+                        SWAP;
                         break;
                     }
 
@@ -386,7 +386,7 @@ int lc3Task(int argc, char *argv[]) {
         // swap tasks every INSTRUCTIONS_PER_SWAP instructions
         if (ips++ > INSTRUCTIONS_PER_SWAP) {
             ips = 0;
-            SWAP
+            SWAP;
         }
     } // end while(1) execution loop
     return 0;
