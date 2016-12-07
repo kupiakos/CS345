@@ -66,6 +66,9 @@ static Semaphore *spaceInPark;
 static Semaphore *spaceInMuseum;
 static Semaphore *spaceInGiftShop;
 
+static Semaphore *buyTicketMutex;
+static Semaphore *sellTicketMutex;
+
 // Inter-process communication
 static void *eventData;
 static Semaphore *eventDataCanBeSet;
@@ -130,7 +133,9 @@ int P3_project3(int argc, char *argv[]) {
     SEMPIPE_INIT(driverToCar, COUNTING, 0);
     SEMPIPE_INIT(purchasingTicket, COUNTING, 0);
 
-    SEM_INIT(eventDataCanBeSet, BINARY, 0);
+    SEM_INIT(eventDataCanBeSet, BINARY, 1);
+    SEM_INIT(buyTicketMutex, BINARY, 1);
+    SEM_INIT(sellTicketMutex, BINARY, 1);
     SEM_INIT(eventDataReady, BINARY, 0);
     SEM_INIT(eventDataReceived, BINARY, 0);
     SEM_INIT(eventThatWasSent, BINARY, 0);
@@ -293,6 +298,8 @@ static int visitorTask(int argc, char *argv[]) {
 
     waitForRandomTime(30, finishedWaiting);
     SWAP;
+    SEM_WAIT(buyTicketMutex);
+    SWAP;
     // buy a ticket
     receiveFromPipe(&purchasingTicket);
     SWAP;
@@ -304,6 +311,8 @@ static int visitorTask(int argc, char *argv[]) {
             SWAP;
             ++myPark.numInMuseumLine;
     );
+    SEM_SIGNAL(buyTicketMutex);
+    SWAP;
 
     // wait to actually go into the museum
     SEM_WAIT(spaceInMuseum);
@@ -317,6 +326,9 @@ static int visitorTask(int argc, char *argv[]) {
             SWAP;
             ++myPark.numInMuseum;
     );
+
+    // wander around the museum
+    waitForRandomTime(30, finishedWaiting);
 
     // get rid of our ticket
     SEM_SIGNAL(spaceInMuseum);
@@ -420,15 +432,17 @@ int driverTask(int argc, char **argv) {
             PARK_STATE(myPark.drivers[driverId] = 0);
             SWAP;
         } else if (event == purchasingTicket.from) {
+            SEM_WAIT(sellTicketMutex);
             PARK_STATE(myPark.drivers[driverId] = -1);
             SWAP;
             // this driver needs to provide a ticket
             SEM_WAIT(ticketsLeft);
             SWAP;
-            SEM_SIGNAL(purchasingTicket.to);
-            SWAP;
             PARK_STATE(myPark.drivers[driverId] = 0);
             SWAP;
+            SEM_SIGNAL(purchasingTicket.to);
+            SWAP;
+            SEM_SIGNAL(sellTicketMutex);
         }
     } while (myPark.numExitedPark < NUM_VISITORS);
     SWAP;
@@ -441,6 +455,9 @@ void waitForRandomTime(int maxTicks, Semaphore *event) {
     semTryLock(event);
     SWAP;
     insertDClock(dClock, rand() % maxTicks, event);
+    SWAP;
+    SEM_WAIT(event);
+    SWAP;
 }
 
 void passEventData(void *data, Semaphore *event) {
