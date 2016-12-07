@@ -67,6 +67,8 @@ static Semaphore *eventDataReady;
 static Semaphore *eventDataReceived;
 static Semaphore *eventThatWasSent;
 
+extern Semaphore *tics10thsec;
+
 static void passEventData(void *data, Semaphore *event);
 
 static void *receiveEventData(Semaphore *event);
@@ -79,6 +81,8 @@ static void *receiveFromPipeWithData(SemaphorePipe *pair);
 
 static void waitForRandomTime(int maxTicks, Semaphore *event);
 
+static Semaphore * waitForEither(Semaphore *sem1, Semaphore *sem2);
+
 // ***********************************************************************
 // project 3 functions and tasks
 void CL3_project3(int, char **);
@@ -88,6 +92,8 @@ void CL3_dc(int, char **);
 static int carTask(int argc, char *argv[]);
 
 static int visitorTask(int argc, char *argv[]);
+
+static int driverTask(int argc, char *argv[]);
 
 
 // ***********************************************************************
@@ -109,6 +115,9 @@ int P3_project3(int argc, char *argv[]) {
 
     // wait for park to get initialized...
     while (!parkMutex) SWAP;
+    // wait for the delta clock to be cleared
+    while (semTryLock(tics10thsec));
+
     printf("\nStart Jurassic Park...");
     dClock = initDClock("Jurassic");
     //?? create car, driver, and visitor tasks here
@@ -300,6 +309,56 @@ static int visitorTask(int argc, char *argv[]) {
     // there's more space now
     SEM_SIGNAL(spaceInPark);
     SWAP;
+    deleteSemaphore(&finishedWaiting);
+    SWAP;
+    return 0;
+}
+
+int driverTask(int argc, char **argv) {
+    assert(argc == 2);
+    char buf[32];
+    int driverId = atoi(argv[1]);
+    SWAP;
+    sprintf(buf, "driver %d", driverId);
+    SWAP;
+    Semaphore *finishedDriving = createSemaphore(buf, BINARY, 0);
+    SWAP;
+
+    Semaphore *event;
+    do {
+        event = waitForEither(driverToCar.from, purchasingTicket.from);
+        SWAP;
+        if (event == driverToCar.from) {
+            // this driver needs to drive a car
+            SemaphoreAndId driverData;
+            driverData = malloc(sizeof(*driverData));
+            assert(driverData);
+            SWAP;
+            driverData->id = driverId;
+            SWAP;
+            driverData->event = finishedDriving;
+            SWAP;
+            passEventData(driverData, driverToCar.to);
+            SWAP;
+            SEM_WAIT(finishedDriving);
+            SWAP;
+            PARK_STATE(myPark.drivers[driverId] = 0);
+            SWAP;
+        } else if (event == purchasingTicket.from) {
+            PARK_STATE(myPark.drivers[driverId] = -1);
+            SWAP;
+            // this driver needs to provide a ticket
+            SEM_WAIT(ticketsLeft);
+            SWAP;
+            SEM_SIGNAL(purchasingTicket.to);
+            SWAP;
+            PARK_STATE(myPark.drivers[driverId] = 0);
+            SWAP;
+        }
+    } while (myPark.numExitedPark < NUM_VISITORS);
+    SWAP;
+    deleteSemaphore(&finishedDriving);
+    SWAP;
     return 0;
 }
 
@@ -359,6 +418,21 @@ void receiveFromPipe(SemaphorePipe *pair) {
     SWAP;
     SEM_WAIT(pair->to);
     SWAP;
+}
+
+Semaphore * waitForEither(Semaphore *sem1, Semaphore *sem2) {
+    while (1) {
+        if (semTryLock(sem1)) {
+            SWAP;
+            return sem1;
+        }
+        SWAP;
+        if (semTryLock(sem2)) {
+            SWAP;
+            return sem2;
+        }
+        SWAP;
+    }
 }
 
 /*
