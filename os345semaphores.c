@@ -106,7 +106,7 @@ int semWait(Semaphore *s) {
     } else {
         // counting semaphore
         // ?? implement counting semaphore
-        if (s->state-- >= 0) { // Consume. Is the resource available?
+        if (--s->state >= 0) { // Consume. Is the resource available?
             // Resource available, return immediately
             return 0;
         }
