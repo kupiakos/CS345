@@ -43,6 +43,12 @@ typedef struct {
 
 #define PARK_STATE(statement) do { SEM_WAIT(parkMutex); SWAP; statement; SWAP; SEM_SIGNAL(parkMutex); SWAP; } while (0)
 
+#define SEM_INIT(sem, type, initial) do { sem = createSemaphore(#sem, (type), (initial)); } while (0)
+#define SEMPIPE_INIT(pipe, type, initial) do { \
+     (pipe).from  = createSemaphore(#pipe "_from", (type), (initial)); \
+     (pipe).to = createSemaphore(#pipe "_to", (type), (initial)); \
+     } while (0)
+
 // Jurassic Park
 extern JPARK myPark;
 extern Semaphore *parkMutex;                        // protect park access
@@ -73,7 +79,7 @@ static void passEventData(void *data, Semaphore *event);
 
 static void *receiveEventData(Semaphore *event);
 
-static void *sendIntoPipeWithData(SemaphorePipe *pair, void *data);
+static void sendIntoPipeWithData(SemaphorePipe *pair, void *data);
 
 static void receiveFromPipe(SemaphorePipe *pair);
 
@@ -81,13 +87,15 @@ static void *receiveFromPipeWithData(SemaphorePipe *pair);
 
 static void waitForRandomTime(int maxTicks, Semaphore *event);
 
-static Semaphore * waitForEither(Semaphore *sem1, Semaphore *sem2);
+static Semaphore *waitForEither(Semaphore *sem1, Semaphore *sem2);
 
 // ***********************************************************************
 // project 3 functions and tasks
 void CL3_project3(int, char **);
 
 void CL3_dc(int, char **);
+
+static int dClockTask(int argc, char *argv[]);
 
 static int carTask(int argc, char *argv[]);
 
@@ -100,7 +108,7 @@ static int driverTask(int argc, char *argv[]);
 // ***********************************************************************
 // project3 command
 int P3_project3(int argc, char *argv[]) {
-    char buf[32];
+    char buf[32], buf2[32];
     char *newArgv[2];
     srand((unsigned int) time(0));
 
@@ -113,6 +121,21 @@ int P3_project3(int argc, char *argv[]) {
                1,                                // task count
                newArgv);                    // task argument
 
+    SEM_INIT(ticketsLeft, COUNTING, MAX_TICKETS);
+    SEM_INIT(spaceInPark, COUNTING, MAX_IN_PARK);
+    SEM_INIT(spaceInMuseum, COUNTING, MAX_IN_MUSEUM);
+    SEM_INIT(spaceInGiftShop, COUNTING, MAX_IN_GIFTSHOP);
+
+    SEMPIPE_INIT(passengerToCar, BINARY, 0);
+    SEMPIPE_INIT(driverToCar, COUNTING, 0);
+    SEMPIPE_INIT(purchasingTicket, COUNTING, 0);
+
+    SEM_INIT(eventDataCanBeSet, BINARY, 0);
+    SEM_INIT(eventDataReady, BINARY, 0);
+    SEM_INIT(eventDataReceived, BINARY, 0);
+    SEM_INIT(eventThatWasSent, BINARY, 0);
+
+
     // wait for park to get initialized...
     while (!parkMutex) SWAP;
     // wait for the delta clock to be cleared
@@ -120,7 +143,45 @@ int P3_project3(int argc, char *argv[]) {
 
     printf("\nStart Jurassic Park...");
     dClock = initDClock("Jurassic");
-    //?? create car, driver, and visitor tasks here
+    SWAP;
+    newArgv[0] = "dClock";
+    SWAP;
+    createTask("dClock", dClockTask, MED_PRIORITY, 1, newArgv);
+    SWAP;
+
+    for (int i = 0; i < NUM_CARS; ++i) {
+        sprintf(buf, "Car_%02d", i);
+        SWAP;
+        sprintf(buf2, "%d", i);
+        SWAP;
+        newArgv[0] = buf, newArgv[1] = buf2;
+        SWAP;
+        createTask(buf, carTask, MED_PRIORITY, 2, newArgv);
+        SWAP;
+    }
+
+    for (int i = 0; i < NUM_DRIVERS; ++i) {
+        sprintf(buf, "Driver_%02d", i);
+        SWAP;
+        sprintf(buf2, "%d", i);
+        SWAP;
+        newArgv[0] = buf, newArgv[1] = buf2;
+        SWAP;
+        createTask(buf, driverTask, MED_PRIORITY, 2, newArgv);
+        SWAP;
+    }
+
+    for (int i = 0; i < NUM_VISITORS; ++i) {
+        sprintf(buf, "Visitor_%02d", i);
+        SWAP;
+        sprintf(buf2, "%d", i);
+        SWAP;
+        newArgv[0] = buf, newArgv[1] = buf2;
+        SWAP;
+        createTask(buf, visitorTask, MED_PRIORITY, 2, newArgv);
+        SWAP;
+    }
+
 
     return 0;
 } // end project3
@@ -134,6 +195,20 @@ int P3_dc(int argc, char *argv[]) {
     printDClock(dClock, argc > 1);
     return 0;
 } // end CL3_dc
+
+int dClockTask(int argc, char **argv) {
+    while (1) {
+        int ticks = 0;
+        SWAP;
+        while (semTryLock(tics10thsec)) {
+            ++ticks;
+            SWAP;
+        }
+        tickDClock(dClock, ticks);
+        SWAP;
+    }
+    return 0;
+}
 
 static int carTask(int argc, char *argv[]) {
     assert(argc == 2);
@@ -407,6 +482,12 @@ void *receiveEventData(Semaphore *event) {
     return data;
 }
 
+void sendIntoPipeWithData(SemaphorePipe *pair, void *data) {
+    SEM_WAIT(pair->from);
+    SWAP;
+    passEventData(data, pair->to);
+}
+
 void *receiveFromPipeWithData(SemaphorePipe *pair) {
     SEM_SIGNAL(pair->from);
     SWAP;
@@ -420,7 +501,7 @@ void receiveFromPipe(SemaphorePipe *pair) {
     SWAP;
 }
 
-Semaphore * waitForEither(Semaphore *sem1, Semaphore *sem2) {
+Semaphore *waitForEither(Semaphore *sem1, Semaphore *sem2) {
     while (1) {
         if (semTryLock(sem1)) {
             SWAP;
