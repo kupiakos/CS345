@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <time.h>
 #include "os345.h"
 #include "os345park.h"
 #include "dclock.h"
@@ -40,7 +41,6 @@ typedef struct {
     Semaphore *event;
 } *SemaphoreAndId;
 
-#define SEM_RECEIVE(pair) do { SEM_SIGNAL((pair).from); SWAP; SEM_WAIT((pair).to); SWAP; } while (0)
 #define PARK_STATE(statement) do { SEM_WAIT(parkMutex); SWAP; statement; SWAP; SEM_SIGNAL(parkMutex); SWAP; } while (0)
 
 // Jurassic Park
@@ -53,7 +53,12 @@ extern Semaphore *rideOver[NUM_CARS];            // (signal) ride over
 static DClock dClock;
 static SemaphorePipe passengerToCar;
 static SemaphorePipe driverToCar;
+static SemaphorePipe purchasingTicket;
 
+static Semaphore *ticketsLeft;
+static Semaphore *spaceInPark;
+static Semaphore *spaceInMuseum;
+static Semaphore *spaceInGiftShop;
 
 // Inter-process communication
 static void *eventData;
@@ -68,7 +73,11 @@ static void *receiveEventData(Semaphore *event);
 
 static void *sendIntoPipeWithData(SemaphorePipe *pair, void *data);
 
+static void receiveFromPipe(SemaphorePipe *pair);
+
 static void *receiveFromPipeWithData(SemaphorePipe *pair);
+
+static void waitForRandomTime(int maxTicks, Semaphore *event);
 
 // ***********************************************************************
 // project 3 functions and tasks
@@ -78,6 +87,8 @@ void CL3_dc(int, char **);
 
 static int carTask(int argc, char *argv[]);
 
+static int visitorTask(int argc, char *argv[]);
+
 
 // ***********************************************************************
 // ***********************************************************************
@@ -85,6 +96,7 @@ static int carTask(int argc, char *argv[]);
 int P3_project3(int argc, char *argv[]) {
     char buf[32];
     char *newArgv[2];
+    srand((unsigned int) time(0));
 
     // start park
     sprintf(buf, "jurassicPark");
@@ -169,6 +181,134 @@ static int carTask(int argc, char *argv[]) {
     return 0;
 }
 
+static int visitorTask(int argc, char *argv[]) {
+    assert(argc == 2);
+    char buf[30];
+    int visitorId = atoi(argv[1]);
+    SWAP;
+    sprintf(buf, "visitor %02d", visitorId);
+    SWAP;
+    Semaphore *finishedWaiting = createSemaphore(buf, BINARY, 0);
+    SWAP;
+
+    waitForRandomTime(100, finishedWaiting);
+    SWAP;
+    // enter the park
+    PARK_STATE(++myPark.numOutsidePark);
+    SEM_WAIT(spaceInPark);
+    SWAP;
+
+    // enter the ticket line
+    PARK_STATE(
+            --myPark.numOutsidePark;
+            SWAP;
+            ++myPark.numInPark;
+            SWAP;
+            ++myPark.numInTicketLine;
+    );
+
+    waitForRandomTime(30, finishedWaiting);
+    SWAP;
+    // buy a ticket
+    receiveFromPipe(&purchasingTicket);
+    SWAP;
+    // now waiting to go into the museum
+    PARK_STATE(
+            --myPark.numTicketsAvailable;
+            SWAP;
+            --myPark.numInTicketLine;
+            SWAP;
+            ++myPark.numInMuseumLine;
+    );
+
+    // wait to actually go into the museum
+    SEM_WAIT(spaceInMuseum);
+    SWAP;
+    // wait to enter the museum
+    waitForRandomTime(30, finishedWaiting);
+    SWAP;
+
+    PARK_STATE(
+            --myPark.numInMuseumLine;
+            SWAP;
+            ++myPark.numInMuseum;
+    );
+
+    // get rid of our ticket
+    SEM_SIGNAL(spaceInMuseum);
+    SWAP;
+
+    // move into the tour line
+    PARK_STATE(
+            --myPark.numInMuseum;
+            SWAP;
+            ++myPark.numInCarLine;
+    );
+
+    waitForRandomTime(30, finishedWaiting);
+    SWAP;
+    sendIntoPipeWithData(&passengerToCar, finishedWaiting);
+    SWAP;
+    PARK_STATE(
+            --myPark.numInCarLine;
+            SWAP;
+            ++myPark.numInCars;
+            SWAP;
+            ++myPark.numTicketsAvailable;
+            SWAP;
+            SEM_SIGNAL(ticketsLeft);
+    );
+    // Wait for us to finish the ride
+    SEM_WAIT(finishedWaiting);
+    SWAP;
+
+    // move to the gift shop line
+    PARK_STATE(
+            --myPark.numInCars;
+            SWAP;
+            ++myPark.numInGiftLine;
+    );
+    waitForRandomTime(30, finishedWaiting);
+    SWAP;
+    // enter the gift shop
+    SEM_WAIT(spaceInGiftShop);
+    SWAP;
+
+    PARK_STATE(
+            --myPark.numInGiftLine;
+            SWAP;
+            ++myPark.numInGiftShop;
+    );
+
+    // spend some time window shopping
+    waitForRandomTime(30, finishedWaiting);
+    SWAP;
+
+    // leave the gift shop
+    SEM_SIGNAL(spaceInGiftShop);
+    SWAP;
+
+    // leave the park
+    PARK_STATE(
+            --myPark.numInPark;
+            SWAP;
+            --myPark.numInGiftShop;
+            SWAP;
+            ++myPark.numExitedPark;
+    );
+
+    // there's more space now
+    SEM_SIGNAL(spaceInPark);
+    SWAP;
+    return 0;
+}
+
+void waitForRandomTime(int maxTicks, Semaphore *event) {
+    semTryLock(event);
+    SWAP;
+    insertDClock(dClock, rand() % maxTicks, event);
+}
+
 void passEventData(void *data, Semaphore *event) {
     SEM_WAIT(eventDataCanBeSet);
     SWAP;
@@ -212,6 +352,13 @@ void *receiveFromPipeWithData(SemaphorePipe *pair) {
     SEM_SIGNAL(pair->from);
     SWAP;
     return receiveEventData(pair->to);
+}
+
+void receiveFromPipe(SemaphorePipe *pair) {
+    SEM_SIGNAL(pair->from);
+    SWAP;
+    SEM_WAIT(pair->to);
+    SWAP;
 }
 
 /*
