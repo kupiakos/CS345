@@ -23,5 +23,5 @@ set(SOURCE_FILES
         os345signals.c
         os345signals.h
         os345tasks.c
-        pqueue.c pqueue.h utils.c utils.h)
+        pqueue.c pqueue.h utils.c utils.h dclock.c dclock.h)
 add_executable(Shell ${SOURCE_FILES})
