@@ -85,6 +85,7 @@ void tickDClock_safe(DClock clock, int ticks) {
 
 void insertDClock(DClock clock, int delta, Semaphore *event) {
     assert(clock);
+    assert(event->q);
     SEM_WAIT(clock->mutex);
 
     DClockEvent *next;
@@ -117,11 +118,12 @@ void insertDClock(DClock clock, int delta, Semaphore *event) {
     *next = e;
     SWAP;
     if (e->delta > 0) {
-        // Everything later than e now needs to have its delta decremented
-        for (e = e->next; e; e = e->next) {
-            e->delta -= delta;
-            SWAP;
+        // The event after e needs to be adjusted to now be a delta of e
+        if (e->next) {
+            e->next->delta -= delta;
+            assert(e->next->delta >= 0);
         }
+        SWAP;
     }
 
     SEM_SIGNAL(clock->mutex);
@@ -144,7 +146,7 @@ void printDClock(DClock clock, bool showAbsolute) {
         }
         delta += e->delta;
         SWAP;
-        printf("%03d - %s\n", e->delta, e->event->name);
+        printf("%03d - %s\n", delta, e->event->name);
         SWAP;
     }
     SEM_SIGNAL(clock->mutex);
